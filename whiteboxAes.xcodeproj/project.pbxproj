@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		025C64311B1004E000B0F605 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025C64301B1004E000B0F605 /* main.cpp */; };
+		025C64401B1034A900B0F605 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025C643F1B1034A900B0F605 /* util.cpp */; };
+		025C64421B105A5700B0F605 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025C64411B105A5700B0F605 /* main.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,7 +25,11 @@
 
 /* Begin PBXFileReference section */
 		025C642D1B1004E000B0F605 /* whiteboxAes */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = whiteboxAes; sourceTree = BUILT_PRODUCTS_DIR; };
-		025C64301B1004E000B0F605 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		025C643B1B10320000B0F605 /* waes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = waes.h; sourceTree = "<group>"; };
+		025C643D1B1033EE00B0F605 /* util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = util.h; sourceTree = "<group>"; };
+		025C643E1B10341C00B0F605 /* type.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = type.h; sourceTree = "<group>"; };
+		025C643F1B1034A900B0F605 /* util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = util.cpp; sourceTree = "<group>"; };
+		025C64411B105A5700B0F605 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,7 +62,11 @@
 		025C642F1B1004E000B0F605 /* whiteboxAes */ = {
 			isa = PBXGroup;
 			children = (
-				025C64301B1004E000B0F605 /* main.cpp */,
+				025C64411B105A5700B0F605 /* main.cpp */,
+				025C643B1B10320000B0F605 /* waes.h */,
+				025C643E1B10341C00B0F605 /* type.h */,
+				025C643D1B1033EE00B0F605 /* util.h */,
+				025C643F1B1034A900B0F605 /* util.cpp */,
 			);
 			path = whiteboxAes;
 			sourceTree = "<group>";
@@ -118,7 +127,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				025C64311B1004E000B0F605 /* main.cpp in Sources */,
+				025C64401B1034A900B0F605 /* util.cpp in Sources */,
+				025C64421B105A5700B0F605 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,6 +215,7 @@
 		025C64351B1004E000B0F605 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -212,6 +223,7 @@
 		025C64361B1004E000B0F605 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

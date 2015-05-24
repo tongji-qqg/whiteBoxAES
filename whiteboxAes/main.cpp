@@ -7,6 +7,17 @@
 //
 
 #include <iostream>
+#include <unistd.h>
+
+// NTL dependencies
+#include <NTL/GF2.h>
+#include <NTL/GF2X.h>
+#include <NTL/vec_GF2.h>
+#include <NTL/GF2E.h>
+#include <NTL/GF2EX.h>
+#include <NTL/mat_GF2.h>
+#include <NTL/vec_long.h>
+
 #include "waes.h"
 
 using namespace std;
@@ -39,5 +50,6 @@ int main(int argc, const char * argv[]) {
     else
         cout << "not same" << endl;
 
+    //sleep(3000);
     return 0;
 }

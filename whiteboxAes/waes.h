@@ -27,6 +27,8 @@ public:
     ~WAES(){};
 	
     void encryptBlock(W128b &in, BYTE * out);
+    
+    void mixColumns(W128b &state);
 };
 
 
@@ -44,6 +46,31 @@ WAES<L>::WAES(BYTE* key):m_nRounds(L/32+6){
     
 }
 
+template<keyLength L>
+void WAES<L>::mixColumns(W128b &state){
+    
+    static const BYTE mc[4][4] = {
+        {0x02, 0x03, 0x01, 0x01},
+        {0x01, 0x02, 0x03, 0x01},
+        {0x01, 0x01, 0x02, 0x03},
+        {0x03, 0x01, 0x01, 0x02}};
+    
+    BYTE  res[4];
+    
+    for (int i = 0; i < 4; i++) {
+        
+        for(int j=0;j<4;j++){
+            res[j] = gmult(mc[j][0], state.B[i * 4 + 0])^
+            gmult(mc[j][1], state.B[i * 4 + 1])^
+            gmult(mc[j][2], state.B[i * 4 + 2])^
+            gmult(mc[j][3], state.B[i * 4 + 3]);
+        }
+        
+        for (int j = 0; j < 4; j++) {
+            state.B[i * 4 + j] = res[j];
+        }
+    }
+}
 
 // process a block
 template<keyLength L>
@@ -56,42 +83,36 @@ void WAES<L>::encryptBlock(W128b &in, BYTE *out){
         12,1, 6, 11
     };
     
-    W128b state;
-    W128b ares[16];
-    W32b res[16];
+    W128b state, t1bres;
+    W32b t2res[16];
     
-    W128CP(state, in);
+    W128CP(in, state);
+    
+    // round 1 - 9
     for (int r=0; r<m_nRounds-1; r++) {
         for (int j=0; j<N_BYTES; j+=4) {
-            res[j+0].l = keyTable.et2[r][j+0][state.B[map[j+0]]].l;
-            res[j+1].l = keyTable.et2[r][j+1][state.B[map[j+1]]].l;
-            res[j+2].l = keyTable.et2[r][j+2][state.B[map[j+2]]].l;
-            res[j+3].l = keyTable.et2[r][j+3][state.B[map[j+3]]].l;
             
-            res[j+0].l = res[j+0].l ^ res[j+1].l ^ res[j+2].l ^ res[j+3].l;
+            t2res[j+0].l = keyTable.et2[r][j+0][state.B[map[j+0]]].l;
+            t2res[j+1].l = keyTable.et2[r][j+1][state.B[map[j+1]]].l;
+            t2res[j+2].l = keyTable.et2[r][j+2][state.B[map[j+2]]].l;
+            t2res[j+3].l = keyTable.et2[r][j+3][state.B[map[j+3]]].l;
+            t2res[j+0].l = t2res[j+0].l ^ t2res[j+1].l ^ t2res[j+2].l ^ t2res[j+3].l;
         }
         
         for (int j=0; j<m_nSection; j++) {
-            state.l[j] = res[j*4].l;
+            state.l[j] = t2res[j*4].l;
         }
-        matShow(state.B);
     }
     
-    
+    // final round
     for (int j=0; j<N_BYTES; j++) {
-        //W128CP(ares[j], keyTable.et1[1][j][in.B[map[j]]]);
-        ares[0].B[j] = keyTable.tbox10[j][state.B[map[j]]];
+        t1bres.B[j] = keyTable.tbox10[j][state.B[map[j]]];
     }
     for (int j=0; j<N_BYTES; j++) {
-        state.B[j] = ares[0].B[j];
-    }
-    for (int j=0; j<4; j++) {
-        for (int k=0; k<16; k++) {
-            //state.l[j] ^= ares[k].l[j];
-        }
-        
+        state.B[j] = t1bres.B[j];
     }
     
+    // out
     for (int i=0; i<16; i++) {
         out[i] = state.B[i];
     }

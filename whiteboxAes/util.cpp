@@ -49,8 +49,8 @@ void printByte(BYTE b){
     cout << "0x" <<ch;
 }
 
-void matShow(BYTE *out){
-    for(int j=0;j<16;j++){
+void matShow(const BYTE *out,int size){
+    for(int j=0;j<size;j++){
         char ch[3];
         ch[0] = (out[j] - '\0')/16;
         ch[1] = (out[j] - '\0')%16;

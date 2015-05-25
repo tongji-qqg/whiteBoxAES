@@ -135,7 +135,7 @@ void WaesGenerator<L>::expandKey(const BYTE *key){
     
     BYTE temp[4];
     for(int i=0;i < L/8;i++){
-        m_w[i] = m_key[i];
+        m_w[i] = key[i];
     }
     
     for(int i=m_Nk;i < m_Nb * (m_Nr + 1);i++){
@@ -155,6 +155,7 @@ void WaesGenerator<L>::expandKey(const BYTE *key){
         m_w[4*i+1] = m_w[4 * (i - m_Nk) + 1] ^ temp[1];
         m_w[4*i+2] = m_w[4 * (i - m_Nk) + 2] ^ temp[2];
         m_w[4*i+3] = m_w[4 * (i - m_Nk) + 3] ^ temp[3];
+        
     }
 }
 
@@ -190,7 +191,6 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
             tbox[i][j][k] = sbox[(BYTE)k ^ m_w[ i*16+map[j]]] ^ m_w[m_Nr*16 + j];
             tables.tbox10[j][k] = tbox[i][j][k];
         }
-        //tables.et1[1][j]
     }
     
     // Tybox
@@ -203,8 +203,6 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
             tybox[k][j].B[2] = gmult(t, mc[k][2]);
             tybox[k][j].B[3] = gmult(t, mc[k][3]);
         }
-        
-        //tybox[j].l = temp[0].l ^ temp[1].l ^ temp[2].l ^ temp[3].l;
     }
     // et2
     for (int i=0; i<m_Nr-1; i++) {

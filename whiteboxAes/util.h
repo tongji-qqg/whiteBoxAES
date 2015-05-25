@@ -13,7 +13,7 @@
 
 BYTE gmult(BYTE a, BYTE b);
 void printByte(BYTE b);
-void matShow(BYTE *out);
+void matShow(const BYTE *out,int size=16);
 inline void W32CP(W32b &s, W32b& t){
     t.l = s.l;
 }

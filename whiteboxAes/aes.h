@@ -197,10 +197,15 @@ void AES<L>::encryptBlock(BYTE* in, BYTE *out){
     int i=0;
     for(i=0;i<m_Nr-1;i++){
         addRoundKey(state,i);
+       
         subBytes( state );
+        
         shiftRows( state );
+        
         mixColumns( state );
+        //matShow(state.B);
     }
+    //matShow(state.B);
     addRoundKey(state,m_Nr-1);
     subBytes( state );
     shiftRows( state );
@@ -209,6 +214,7 @@ void AES<L>::encryptBlock(BYTE* in, BYTE *out){
     for(int i=0;i<16;i++)
             out[i] = state.B[i];
     //matShow( state );
+    
 }
 
 template<keyLength L>

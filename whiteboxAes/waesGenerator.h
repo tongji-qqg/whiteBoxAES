@@ -14,7 +14,35 @@
 #include <iostream>
 #include <unistd.h>
 #include <NTL/mat_GF2.h>
+#include <NTL/vec_GF2.h>
+#include "bijection.h"
 #include "type.h"
+
+//
+//  Mixing bijection (linear transformation represented as GF(2) matrix)
+//
+typedef struct _MB_TABLE {
+    //int         type;
+    NTL::mat_GF2     mb;
+    NTL::mat_GF2     inv;
+    
+    _MB_TABLE(void) {
+        
+    }
+} MB_TABLE;
+
+typedef MB_TABLE MB08x08_TABLE;
+typedef MB_TABLE MB32x32_TABLE;
+typedef MB_TABLE MB128x128_TABLE;
+
+template<keyLength L>
+class BijectionTables{
+public:
+    MB128x128_TABLE iot[2];
+    MB08x08_TABLE lt[L / 32 + 6][16];
+    MB32x32_TABLE rt[L / 32 + 6][4];
+};
+
 
 using namespace std;
 template<keyLength L>
@@ -33,13 +61,19 @@ private:
     //Nr Number of rounds, which is a function of Nk and Nb (which isfixed). For this standard, Nr = 10, 12, or 14.
     int m_Nr;
     
+    static const int map[16];
+    static const int mapinv[16];
+    static const BYTE mc[4][4];
+    
     BYTE m_key[L/8+1];
     BYTE m_w[4*4*(L/32+7)];
     
     TB256 tbox[L/32+6][16];
     W32b tybox[4][256];
     
-    
+    bool useIOident;  //
+    bool use08ident;
+    bool use32ident;
 private:
     BYTE* rotWord(BYTE* word){
         BYTE tmp = word[0];
@@ -74,9 +108,24 @@ private:
     }
     
     void expandKey(const BYTE *key);
+    
+    void generateRandomBijectionTables(BijectionTables<L> &bij);
+    
+    void generateTMCtables(const BYTE* key);
+    
+    void generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    
+    void generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    
+    void generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    
+    void generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    
 public:
     WaesGenerator();
+    
     ~WaesGenerator(){};
+    
     int  generateKeyTables(const BYTE* key, WaesTables<L> &tables);
 };
 
@@ -129,6 +178,26 @@ const TB256 WaesGenerator<L>::invSbox = {
     0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61, // e
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d};// f
 
+template<keyLength L>
+const int WaesGenerator<L>::map[16] = {
+    0, 5, 10,15,
+    4, 9, 14,3,
+    8, 13,2, 7,
+    12,1, 6, 11
+};
+template<keyLength L>
+const int WaesGenerator<L>::mapinv[16] = {
+    0, 13, 10,  7,
+    4,  1, 14, 11,
+    8,  5,  2, 15,
+    12, 9,  6,  3
+};
+template<keyLength L>
+const BYTE WaesGenerator<L>::mc[4][4] = {
+    {0x02, 0x01, 0x01, 0x03},
+    {0x03, 0x02, 0x01, 0x01},
+    {0x01, 0x03, 0x02, 0x01},
+    {0x01, 0x01, 0x03, 0x02}};
 
 template<keyLength L>
 void WaesGenerator<L>::expandKey(const BYTE *key){
@@ -159,26 +228,59 @@ void WaesGenerator<L>::expandKey(const BYTE *key){
     }
 }
 
+// random generate mixingbijection
+// uses by total white box encrypt process
 template<keyLength L>
-int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables){
+void WaesGenerator<L>::generateRandomBijectionTables(BijectionTables<L>&bij){
+    if (this->useIOident) {
+        NTL::ident(bij.iot[0].mb, 128);
+        NTL::ident(bij.iot[1].mb, 128);
+    }
+    else{
+        randomMixingBijection(bij.iot[0].mb, 128);
+        randomMixingBijection(bij.iot[1].mb, 128);
+    }
+    NTL::inv(bij.iot[0].inv, bij.iot[0].mb);
+    NTL::inv(bij.iot[1].inv, bij.iot[1].mb);
     
-    static const int map[16] = {
-        0, 5, 10,15,
-        4, 9, 14,3,
-        8, 13,2, 7,
-        12,1, 6, 11
-    };
-    static const BYTE mc[4][4] = {
-        {0x02, 0x01, 0x01, 0x03},
-        {0x03, 0x02, 0x01, 0x01},
-        {0x01, 0x03, 0x02, 0x01},
-        {0x01, 0x01, 0x03, 0x02}};
+    for (int i=0; i<m_Nr; i++) {
+        for (int j=0; j<16; j++) {
+            
+            //if (this->use08ident || i >= 9){
+            if (this->use08ident){
+                NTL::ident(bij.lt[i][j].mb, 8);
+            }else{
+                randomMixingBijection(bij.lt[i][j].mb,8);
+            }
+            NTL::inv(bij.lt[i][j].inv, bij.lt[i][j].mb);
+        }
+    }
+    
+    for (int i=0; i<m_Nr; i++) {
+        for (int j=0; j<4; j++) {
+            
+            if (this->use32ident) {
+                NTL::ident(bij.rt[i][j].mb, 32);
+            }else{
+                randomMixingBijection(bij.rt[i][j].mb, 32);
+            }
+            NTL::inv(bij.rt[i][j].inv, bij.rt[i][j].mb);
+        }
+    }
+    
+}
+
+
+
+
+template<keyLength L>
+void  WaesGenerator<L>::generateTMCtables(const BYTE* key){
     
     expandKey(key);
     
     // Tbox
     int i = 0;
-
+    
     for (i=0; i<m_Nr-1; i++) {
         for(int j=0;j<16;j++){
             for (int k=0; k<=255; k++) {
@@ -189,7 +291,7 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
     for(int j=0;j<16;j++){
         for (int k=0; k<256; k++) {
             tbox[i][j][k] = sbox[(BYTE)k ^ m_w[ i*16+map[j]]] ^ m_w[m_Nr*16 + j];
-            tables.tbox10[j][k] = tbox[i][j][k];
+            //tables.tbox10[j][k] = tbox[i][j][k];
         }
     }
     
@@ -204,19 +306,164 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
             tybox[k][j].B[3] = gmult(t, mc[k][3]);
         }
     }
-    // et2
-    for (int i=0; i<m_Nr-1; i++) {
-        for (int j=0; j<16; j++) {
-            for (int k=0; k<256; k++) {
-                tables.et2[i][j][k].l = tybox[j%4][tbox[i][j][k]].l;
+
+}
+
+template<keyLength L>
+void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij){
+    // 1a
+    W128b temp;
+    NTL::mat_GF2 inpartition[16],outpartition[16];
+    for (int i=0; i<16; i++) {
+        inpartition[i].SetDims(128, 8);
+        outpartition[i].SetDims(128, 8);
+        for (int j=0; j<128; j++) {
+            for (int k=0; k<8; k++) {
+                inpartition[i][j][k] = bij.iot[0].inv[j][i*8+k];
+                outpartition[i][j][k] = bij.iot[0].inv[j][i*8+k];
             }
         }
     }
+    for (int i=0; i<256; i++) {
+        for (int j=0; j<16; j++) {
+            // input decoding
+            NTL::vec_GF2 vec,res;
+            Byte2Vec((BYTE)i, vec, 0);
+            NTL::mul(res, inpartition[j], vec);
+            Vec2Byte( res, temp.B, 128);
+            
+            //W128CP(temp,wtable.et1[0][j][i]);
+            // l 0
+            for (int k=0; k<16; k++) {
+                NTL::vec_GF2 sec;
+                Byte2Vec(temp.B[k], sec, 0, 8);
+                NTL::mul(res, bij.lt[0][mapinv[k]].mb, sec);
+                Vec2Byte(res, &wtable.et1[0][j][i].B[k], 8);
+            }
+        }
+    }
+    
+    // 1b
+    NTL::vec_GF2 vec8, res8;
+    BYTE byte;
+    for (int i=0; i<16; i++) {
+        for (int j=0; j<256; j++) {
+            // l ^ -1
+            Byte2Vec((BYTE)j, vec8, 0);
+            NTL::mul(res8, bij.lt[m_Nr-1][i].inv, vec8);
+            Vec2Byte(res8, &byte, 8);
+            
+            // tbox
+            byte = tbox[m_Nr -1][i][byte];
+            
+            //wtable.tbox10[i][j] = byte;
+            // out encoding
+            NTL::vec_GF2 vec,res;
+            Byte2Vec(byte, vec, 0);
+            NTL::mul(res, outpartition[i], vec);
+            Vec2Byte(res, temp.B, 128);
+            W128CP(temp, wtable.et1[1][i][j]);
+        }
+
+    }
+}
+
+template<keyLength L>
+void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij){
+    // l^-1
+    NTL::vec_GF2 vec8,res8,vec32,res32;
+    BYTE byte;
+    W32b temp;
+    vec8.SetLength(8);vec32.SetLength(32);
+    //
+    for (int i=0; i<m_Nr-1; i++) {
+        for (int j=0; j<16; j++) {
+            for (int k=0; k<256; k++) {
+                
+                // l^-1
+                Byte2Vec((BYTE)k, vec8, 0);
+                NTL::mul(res8, bij.lt[i][j].inv,vec8);
+                Vec2Byte(res8, &byte, 8);
+                
+                // TMC
+                temp.l = tybox[j%4][tbox[i][j][byte]].l;
+                
+                // R
+                W32b2Vec(temp, vec32);
+                NTL::mul(res32, bij.rt[i][j/4].mb, vec32);
+                Vec2W32b(res32,temp);
+                wtable.et2[i][j][k].l = temp.l;
+            }
+        }
+    }
+}
+
+template<keyLength L>
+void WaesGenerator<L>::generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij){
+    W32b temp1,temp2;
+    NTL::vec_GF2 vec8,res8;
+    for (int i=0; i<m_Nr - 1; i++) {
+        for (int j=0; j<16; j++) {
+            for (int k=0;k<256; k++) {
+                // R ^ -1
+                NTL::vec_GF2 vec32,res32;
+                Byte2Vec((BYTE)k, vec32, (j%4)*8,32);
+                NTL::mul(res32, bij.rt[i][j/4].inv, vec32);
+                Vec2W32b(res32, temp1);
+                
+                // L
+                for (int m=0; m<4; m++) {
+                    Byte2Vec(temp1.B[m], vec8, 0);
+                    NTL::mul(res8, bij.lt[i+1][mapinv[(j/4)*4 + m]].mb, vec8);
+                    Vec2Byte(res8, &temp2.B[m], 8);
+                }
+                wtable.et3[i][j][k].l = temp2.l;
+            }
+        }
+    }
+}
+
+template<keyLength L>
+void WaesGenerator<L>::generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij){
+    
+}
+
+
+
+template<keyLength L>
+int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables){
+    
+    BijectionTables<L> bijtable;
+    
+    generateTMCtables(key);
+    
+    generateRandomBijectionTables(bijtable);
+    
+    generateTableType1(tables, bijtable);
+    
+    generateTableType2(tables, bijtable);
+    
+    generateTableType3(tables, bijtable);
+    
+    generateTableType4(tables, bijtable);
+    
+    // just for test
+    for(int j=0;j<16;j++){
+        for (int k=0; k<256; k++) {
+            tables.tbox10[j][k] = tbox[m_Nr - 1][j][k];
+        }
+    }
+    
     return 0;
 }
 
 
+
+
 template<keyLength L>
 WaesGenerator<L>::WaesGenerator():m_Nk(L/32),m_Nr(L/32+6){
+    this->useIOident = true;
+    this->use08ident = false;
+    this->use32ident = false;
 }
 #endif /* defined(__whiteboxAes__waesGenerator__) */

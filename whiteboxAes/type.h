@@ -60,4 +60,5 @@ public:
     WAES_TB_TYPE2 dt2[L/32 + 5][16];
     WAES_TB_TYPE3 dt3[L/32 + 5][16];
 };
+
 #endif

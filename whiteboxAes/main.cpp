@@ -22,23 +22,6 @@
 
 using namespace std;
 
-//
-//  Mixing bijection (linear transformation represented as GF(2) matrix)
-//
-typedef struct _MB_TABLE {
-    //int         type;
-    NTL::mat_GF2     mb;
-    NTL::mat_GF2     inv;          // SPEED OPTIMALIZATION, CAN BE ALSO COMPUTED FROM coding MEMBER (DUE TO BIJECTION PROPERTY)
-    
-    _MB_TABLE(void) {
-        
-    }
-} MB_TABLE;
-
-typedef MB_TABLE MB08x08_TABLE;
-typedef MB_TABLE MB32x32_TABLE;
-typedef MB_TABLE MB128x128_TABLE;
-
 
 template<keyLength L>
 void compare(BYTE *key,W128b &in){

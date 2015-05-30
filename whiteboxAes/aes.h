@@ -31,9 +31,15 @@ private:
     
 private:
 	void addRoundKey(W128b &state, int r);
-	void mixColumns(W128b &state);
+	
+    void mixColumns(W128b &state);
 	void shiftRows(W128b &state);
 	void subBytes(W128b &state);
+    
+    void inv_mixColumns(W128b &state, int rk);
+    void inv_shiftRows(W128b &state);
+    void inv_subBytes(W128b &state);
+    
 	void keyExpansion();
     
 private:
@@ -73,7 +79,256 @@ public:
     ~AES(){};
 	void setKey(const BYTE* key);
 	void encryptBlock(BYTE * in, BYTE * out);
+    void decryptBlock(BYTE * in, BYTE * out);
 };
+
+
+template<keyLength L>
+void AES<L>::addRoundKey(W128b &state, int r){
+    for(int i=0;i<16;i++){
+        state.B[i] ^= m_w[16 * r + i];
+    }
+}
+
+template<keyLength L>
+void AES<L>::mixColumns(W128b &state){
+    
+    static const BYTE mc[4][4] = {
+        {0x02, 0x03, 0x01, 0x01},
+        {0x01, 0x02, 0x03, 0x01},
+        {0x01, 0x01, 0x02, 0x03},
+        {0x03, 0x01, 0x01, 0x02}};
+    
+    BYTE  res[4];
+    
+    for (int i = 0; i < 4; i++) {
+        
+        for(int j=0;j<4;j++){
+            res[j] = gmult(mc[j][0], state.B[i * 4 + 0])^
+                     gmult(mc[j][1], state.B[i * 4 + 1])^
+                     gmult(mc[j][2], state.B[i * 4 + 2])^
+                     gmult(mc[j][3], state.B[i * 4 + 3]);
+        }
+        
+        for (int j = 0; j < 4; j++) {
+            state.B[i * 4 + j] = res[j];
+        }
+    }
+}
+
+template<keyLength L>
+void AES<L>::inv_mixColumns(W128b &state, int rk){
+    
+    static const BYTE mc[4][4] = {
+        {0x0e, 0x0b, 0x0d, 0x09},
+        {0x09, 0x0e, 0x0b, 0x0d},
+        {0x0d, 0x09, 0x0e, 0x0b},
+        {0x0b, 0x0d, 0x09, 0x0e}};
+    
+    BYTE  res[4], kres[4];
+    
+    for (int i = 0; i < 4; i++) {
+        
+        for(int j=0;j<4;j++){
+            res[j] = gmult(mc[j][0], state.B[i * 4 + 0])^
+            gmult(mc[j][1], state.B[i * 4 + 1])^
+            gmult(mc[j][2], state.B[i * 4 + 2])^
+            gmult(mc[j][3], state.B[i * 4 + 3]);
+            
+        }
+        
+        for (int j = 0; j < 4; j++) {
+            state.B[i * 4 + j] = res[j];
+        }
+    }
+}
+
+// shift rows
+// 0  1  2  3        0   5   10  15
+// 4  5  6  7    _   4   9   14  3
+// 8  9  10 11       8   13  2   7
+// 12 13 14 15       12  1   6   11
+template<keyLength L>
+void AES<L>::shiftRows(W128b &state){
+    static const int map[16] = {
+        0, 5, 10,15,
+        4, 9, 14,3,
+        8, 13,2, 7,
+        12,1, 6, 11
+    };
+    BYTE temp[16];
+
+    for(int i=0;i<16;i++)
+        temp[i] = state.B[i];
+    for(int i=0;i<16;i++)
+        state.B[i] = temp[map[i]];
+}
+
+// shift rows
+// 0  1  2  3        0   13  10  7    | 0   4  8    12  |0   4   8   12
+// 4  5  6  7    _   4   1   14  11   | 1   5  9    13  |13  1   5   9
+// 8  9  10 11       8   5   2   15   | 2   6  10   14  |10  14  2   6
+// 12 13 14 15       12  9   6   3    | 3   7  11   15  |7   11  15  3
+template<keyLength L>
+void AES<L>::inv_shiftRows(W128b &state){
+    static const int map[16] = {
+        0, 13, 10,  7,
+        4,  1, 14, 11,
+        8,  5,  2, 15,
+        12, 9,  6,  3
+    };
+    BYTE temp[16];
+    
+    for(int i=0;i<16;i++)
+        temp[i] = state.B[i];
+    for(int i=0;i<16;i++)
+        state.B[i] = temp[map[i]];
+}
+
+
+template<keyLength L>
+void AES<L>::subBytes(W128b &state){
+    
+    for(int i=0;i<16;i++){
+        state.B[i] = sbox[ state.B[i] ];
+    }
+}
+
+template<keyLength L>
+void AES<L>::inv_subBytes(W128b &state){
+    
+    for(int i=0;i<16;i++){
+        state.B[i] = invSbox[ state.B[i] ];
+    }
+}
+
+template<keyLength L>
+void AES<L>::decryptBlock(BYTE* in, BYTE *out){
+    W128b state;
+    
+    for(int i=0;i<16;i++)
+        state.B[i] = in[i];
+    
+    matShow(state.B);
+    addRoundKey(state, m_Nr);
+    //inv_shiftRows( state );
+    //inv_subBytes( state );
+    //addRoundKey(state, m_Nr-1);
+    int i=0;
+    for(i=m_Nr-1;i > 0;i--){
+        std::cout << i << "\n";
+        matShow(state.B);
+        std::cout << "roundkey" << "\n";
+        matShow(m_w + (i+1)*16 );
+    
+        inv_shiftRows( state );
+        std::cout << "shiftrow" << "\n";
+        matShow(state.B);
+        
+        inv_subBytes( state );
+        std::cout << "subbyte,shiftrow" << "\n";
+        matShow(state.B);
+        
+        
+        addRoundKey(state,i);
+        std::cout << "addroundkey" << "\n";
+        matShow(state.B);
+ 
+        
+        inv_mixColumns( state, i);
+        std::cout << "mixcol" << "\n";
+        matShow(state.B);
+    }
+    
+    //matShow(state.B);
+    //addRoundKey(state,1);
+    inv_shiftRows( state );
+    inv_subBytes( state );
+    addRoundKey(state,0);
+    
+    for(int i=0;i<16;i++)
+        out[i] = state.B[i];
+    //matShow( state );
+}
+
+template<keyLength L>
+void AES<L>::encryptBlock(BYTE* in, BYTE *out){
+    W128b state;
+    
+    for(int i=0;i<16;i++)
+        state.B[i] = in[i];
+    
+    int i=0;
+    for(i=0;i<m_Nr-1;i++){
+        addRoundKey(state,i);
+        //matShow(state.B);
+        //matShow(m_w+i*16);
+        subBytes( state );
+        //matShow(state.B);
+        shiftRows( state );
+        //matShow(state.B);
+        mixColumns( state );
+        //matShow(state.B);
+    }
+    //matShow(state.B);
+    addRoundKey(state,m_Nr-1);
+    subBytes( state );
+    shiftRows( state );
+    addRoundKey(state,m_Nr);
+    
+    for(int i=0;i<16;i++)
+            out[i] = state.B[i];
+    //matShow( state.B );
+    
+}
+
+template<keyLength L>
+void AES<L>::keyExpansion(){
+    
+    BYTE temp[4];
+    for(int i=0;i < L/8;i++){
+        m_w[i] = m_key[i];
+    }
+    
+    for(int i=m_Nk;i < m_Nb * (m_Nr + 1);i++){
+        temp[0] = m_w[4 * (i - 1) + 0];
+        temp[1] = m_w[4 * (i - 1) + 1];
+        temp[2] = m_w[4 * (i - 1) + 2];
+        temp[3] = m_w[4 * (i - 1) + 3];
+        
+        if(i%m_Nk == 0){
+            rotWord(temp);
+            subWord(temp);
+            coefAdd(temp,i/m_Nk);
+        }else if(m_Nk>6 && i%m_Nk == 4){
+            subWord(temp);
+        }
+        m_w[4*i+0] = m_w[4 * (i - m_Nk) + 0] ^ temp[0];
+        m_w[4*i+1] = m_w[4 * (i - m_Nk) + 1] ^ temp[1];
+        m_w[4*i+2] = m_w[4 * (i - m_Nk) + 2] ^ temp[2];
+        m_w[4*i+3] = m_w[4 * (i - m_Nk) + 3] ^ temp[3];
+    }
+}
+
+
+template<keyLength L>
+void AES<L>::setKey(const BYTE* key){
+    memset(m_key,'\0',sizeof(m_key));
+    //strncpy((char*)m_key,(const char*)key,sizeof(m_key)-1);
+    //std::cout<<sizeof(m_key) -1 << std::endl;
+    for (int i=0; i<16; i++) {
+        m_key[i] = key[i];
+    }
+    keyExpansion();
+    memset(m_key,'\0',sizeof(m_key));
+}
+
+
+template<keyLength L>
+AES<L>::AES(BYTE* key):m_Nk(L/32),m_Nr(L/32+6){
+    if (NULL != key)
+        setKey(key);
+}
 
 template<keyLength L>
 const int AES<L>::m_Nb = 4;
@@ -124,141 +379,5 @@ const TB256 AES<L>::invSbox = {
     0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61, // e
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d};// f
 
-
-template<keyLength L>
-void AES<L>::addRoundKey(W128b &state, int r){
-    for(int i=0;i<16;i++){
-        state.B[i] ^= m_w[16 * r + i];
-    }
-}
-
-template<keyLength L>
-void AES<L>::mixColumns(W128b &state){
-    
-    static const BYTE mc[4][4] = {
-        {0x02, 0x03, 0x01, 0x01},
-        {0x01, 0x02, 0x03, 0x01},
-        {0x01, 0x01, 0x02, 0x03},
-        {0x03, 0x01, 0x01, 0x02}};
-    
-    BYTE  res[4];
-    
-    for (int i = 0; i < 4; i++) {
-        
-        for(int j=0;j<4;j++){
-            res[j] = gmult(mc[j][0], state.B[i * 4 + 0])^
-                     gmult(mc[j][1], state.B[i * 4 + 1])^
-                     gmult(mc[j][2], state.B[i * 4 + 2])^
-                     gmult(mc[j][3], state.B[i * 4 + 3]);
-        }
-        
-        for (int j = 0; j < 4; j++) {
-            state.B[i * 4 + j] = res[j];
-        }
-    }
-}
-
-// shift rows
-// 0  1  2  3        0   5   10  15
-// 4  5  6  7    _   4   9   14  3
-// 8  9  10 11       8   13  2   7
-// 12 13 14 15       12  1   6   11
-template<keyLength L>
-void AES<L>::shiftRows(W128b &state){
-    static const int map[16] = {
-        0, 5, 10,15,
-        4, 9, 14,3,
-        8, 13,2, 7,
-        12,1, 6, 11
-    };
-    BYTE temp[16];
-
-    for(int i=0;i<16;i++)
-        temp[i] = state.B[i];
-    for(int i=0;i<16;i++)
-        state.B[i] = temp[map[i]];
-}
-
-template<keyLength L>
-void AES<L>::subBytes(W128b &state){
-    
-    for(int i=0;i<16;i++){
-        state.B[i] = sbox[ state.B[i] ];
-    }
-}
-
-template<keyLength L>
-void AES<L>::encryptBlock(BYTE* in, BYTE *out){
-    W128b state;
-    
-    for(int i=0;i<16;i++)
-        state.B[i] = in[i];
-
-    int i=0;
-    for(i=0;i<m_Nr-1;i++){
-        addRoundKey(state,i);
-       
-        subBytes( state );
-        
-        shiftRows( state );
-        
-        mixColumns( state );
-        //matShow(state.B);
-    }
-    //matShow(state.B);
-    addRoundKey(state,m_Nr-1);
-    subBytes( state );
-    shiftRows( state );
-    addRoundKey(state,m_Nr);
-    
-    for(int i=0;i<16;i++)
-            out[i] = state.B[i];
-    //matShow( state );
-    
-}
-
-template<keyLength L>
-void AES<L>::keyExpansion(){
-    
-    BYTE temp[4];
-    for(int i=0;i < L/8;i++){
-        m_w[i] = m_key[i];
-    }
-    
-    for(int i=m_Nk;i < m_Nb * (m_Nr + 1);i++){
-        temp[0] = m_w[4 * (i - 1) + 0];
-        temp[1] = m_w[4 * (i - 1) + 1];
-        temp[2] = m_w[4 * (i - 1) + 2];
-        temp[3] = m_w[4 * (i - 1) + 3];
-        
-        if(i%m_Nk == 0){
-            rotWord(temp);
-            subWord(temp);
-            coefAdd(temp,i/m_Nk);
-        }else if(m_Nk>6 && i%m_Nk == 4){
-            subWord(temp);
-        }
-        m_w[4*i+0] = m_w[4 * (i - m_Nk) + 0] ^ temp[0];
-        m_w[4*i+1] = m_w[4 * (i - m_Nk) + 1] ^ temp[1];
-        m_w[4*i+2] = m_w[4 * (i - m_Nk) + 2] ^ temp[2];
-        m_w[4*i+3] = m_w[4 * (i - m_Nk) + 3] ^ temp[3];
-    }
-}
-
-
-template<keyLength L>
-void AES<L>::setKey(const BYTE* key){
-    memset(m_key,'\0',sizeof(m_key));
-    strncpy((char*)m_key,(const char*)key,sizeof(m_key)-1);
-    keyExpansion();
-    memset(m_key,'\0',sizeof(m_key));
-}
-
-
-template<keyLength L>
-AES<L>::AES(BYTE* key):m_Nk(L/32),m_Nr(L/32+6){
-    if (NULL != key)
-        setKey(key);
-}
 
 #endif

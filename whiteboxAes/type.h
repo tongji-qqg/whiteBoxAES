@@ -77,14 +77,10 @@ public:
     WAES_TB_TYPE4 ex4t2t3[L/32 + 5][12]       [8];
     WAES_TB_TYPE4 ex4t3t2[L/32 + 5][12]       [8];
     
-    
-    
-    // dt is same as et
-    WAES_TB_TYPE4 dt0[2][16][16 + 8 + 4 + 2 + 1];
-    WAES_TB_TYPE1 dt1[2][16];
-    WAES_TB_TYPE2 dt2[L/32 + 5][16];
-    WAES_TB_TYPE3 dt3[L/32 + 5][16];
-    WAES_TB_TYPE4 dt4[L/32 + 5][8][24];
+    TB256 tbox[L/32+6][BLOCK_BYTE_NUM];
+    W32b tybox[4][256];
+    BYTE m_roundKey[4*4*(L/32+7)];
+
 };
 
 #endif

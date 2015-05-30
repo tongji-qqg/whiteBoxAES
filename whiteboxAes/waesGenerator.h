@@ -75,11 +75,15 @@ private:
     //Nr Number of rounds, which is a function of Nk and Nb (which isfixed). For this standard = 10, 12, or 14.
     int m_nRounds;
     
-    static const int  shiftRow    [BLOCK_BYTE_NUM];
-    static const int  shiftRowInv [BLOCK_BYTE_NUM];
-    static const int  xorShiftRow1[BLOCK_BYTE_NUM];
-    static const int  xorShiftRow2[BLOCK_BYTE_NUM];
-    static const BYTE mc[SECTION_NUM][SECTION_BYTE_NUM];
+    static const int  emptyMap          [BLOCK_BYTE_NUM];
+    static const int  shiftRow          [BLOCK_BYTE_NUM];
+    static const int  shiftRowInv       [BLOCK_BYTE_NUM];
+    static const int  xorShiftRow1      [BLOCK_BYTE_NUM]; // make xor table t3 -> t2, choose section
+    static const int  xorShiftRow2      [BLOCK_BYTE_NUM]; // make xor table t3 -> t2, choose index in section
+    static const int  xorShiftRow1Decode[BLOCK_BYTE_NUM]; // xor decode table t3 -> t2, choose section
+    static const int  xorShiftRow2Decode[BLOCK_BYTE_NUM]; // xor decode table t3 -> t2, choose index in section
+    static const BYTE mc   [SECTION_NUM][SECTION_BYTE_NUM];
+    static const BYTE mcInv[SECTION_NUM][SECTION_BYTE_NUM];
     
     BYTE m_roundKey[4*4*(L/32+7)];
     
@@ -142,22 +146,22 @@ private:
      */
     void generateRandomBijectionTables(BijectionTables<L> &bij);
     
-    void generateTMCtables(const BYTE* key);
+    void generateTMCtables(const BYTE* key, bool isEncrypt = true);
     
-    void generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    void generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt = true);
     
-    void generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    void generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt = true);
     
-    void generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    void generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt = true);
     
-    void generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij);
+    void generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt = true);
     
 public:
     WaesGenerator();
     
     ~WaesGenerator(){};
     
-    int  generateKeyTables(const BYTE* key, WaesTables<L> &tables);
+    int  generateKeyTables(const BYTE* key, WaesTables<L> &tables, bool isEncrypt = true);
 };
 
 
@@ -211,7 +215,7 @@ void WaesGenerator<L>::generateRandomBijectionTables(BijectionTables<L>&bij){
     for (int i = 0; i<m_nRounds; i++) {
         for (int j = 0; j < BLOCK_BYTE_NUM ; j++) {
             
-            //if (this->use08ident || i >= 9){
+            //if (this->use08ident && i < 9){
             if ( this->use08ident ){
                 NTL::ident(bij.lt[i][j].mb, 8);
             }else{
@@ -283,37 +287,52 @@ void WaesGenerator<L>::generateRandomBijectionTables(BijectionTables<L>&bij){
 
 
 template<keyLength L>
-void  WaesGenerator<L>::generateTMCtables(const BYTE* key){
+void  WaesGenerator<L>::generateTMCtables(const BYTE* key, bool isEncrypt){
     
     expandKey(key);
+    
+    const BYTE (&mcOp)[SECTION_NUM][SECTION_BYTE_NUM] = isEncrypt ? mc       : mcInv;
     
     // Tbox
     int i = 0;
     
-    for (i = 0; i < m_nRounds - 1; i++) {
-        for(int j = 0 ; j < BLOCK_BYTE_NUM ;j++){
+    if (isEncrypt) {
+        for (i = 0; i < m_nRounds - 1; i++) {
+            for(int j = 0 ; j < BLOCK_BYTE_NUM ;j++){
+                for (int k = 0; k < TABLE_8BIT_IN_SIZE ; k++) {
+                    tbox[i][j][k] = sbox[ (BYTE)k ^ m_roundKey[ i * BLOCK_BYTE_NUM + shiftRow[j]] ];
+                }
+            }
+        }
+        
+        for(int j = 0; j < BLOCK_BYTE_NUM ; j++){
             for (int k = 0; k < TABLE_8BIT_IN_SIZE ; k++) {
-                tbox[i][j][k] = sbox[ (BYTE)k ^ m_roundKey[ i * BLOCK_BYTE_NUM + shiftRow[j]] ];
+                tbox[i][j][k] = sbox[(BYTE)k ^ m_roundKey[ i * BLOCK_BYTE_NUM + shiftRow[j] ]] ^
+                m_roundKey[ m_nRounds * BLOCK_BYTE_NUM + j];
+            }
+        }
+    }else{
+        
+        for (i = 0; i < m_nRounds ; i++) {
+            for(int j = 0 ; j < BLOCK_BYTE_NUM ;j++){
+                for (int k = 0; k < TABLE_8BIT_IN_SIZE ; k++) {
+                    
+                    tbox[i][j][k] = sboxInv[k]  ^ m_roundKey[i * BLOCK_BYTE_NUM + j];
+                }
             }
         }
     }
     
-    for(int j = 0; j < BLOCK_BYTE_NUM ; j++){
-        for (int k = 0; k < TABLE_8BIT_IN_SIZE ; k++) {
-            tbox[i][j][k] = sbox[(BYTE)k ^ m_roundKey[ i * BLOCK_BYTE_NUM + shiftRow[j] ]] ^
-                            m_roundKey[ m_nRounds * BLOCK_BYTE_NUM + j];
-        }
-    }
     
     // Tybox
     for (int j = 0; j < TABLE_8BIT_IN_SIZE ; j++) {
         BYTE t = (BYTE)j;
         
         for (int k = 0; k < SECTION_NUM ; k++) {
-            tybox[k][j].B[0] = gmult(t, mc[k][0]);
-            tybox[k][j].B[1] = gmult(t, mc[k][1]);
-            tybox[k][j].B[2] = gmult(t, mc[k][2]);
-            tybox[k][j].B[3] = gmult(t, mc[k][3]);
+            tybox[k][j].B[0] = gmult(t, mcOp[k][0]);
+            tybox[k][j].B[1] = gmult(t, mcOp[k][1]);
+            tybox[k][j].B[2] = gmult(t, mcOp[k][2]);
+            tybox[k][j].B[3] = gmult(t, mcOp[k][3]);
         }
     }
 
@@ -324,10 +343,14 @@ void  WaesGenerator<L>::generateTMCtables(const BYTE* key){
 
 
 template<keyLength L>
-void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij){
+void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt){
     
     // partition: 128 x 128 -> 128 x 8 + 128 x 8 + 128 x 8 + 128 x 8
     W128b temp;
+    const int  (&shiftRowOp) [BLOCK_BYTE_NUM] = isEncrypt ? shiftRowInv  : shiftRow;
+    const int  (&xorShiftOp1)[BLOCK_BYTE_NUM] = isEncrypt ? xorShiftRow1 : xorShiftRow1Decode;
+    const int  (&xorShiftOp2)[BLOCK_BYTE_NUM] = isEncrypt ? xorShiftRow2 : xorShiftRow2Decode;
+    
     NTL::mat_GF2 inpartition[16],outpartition[16];
     for (int i = 0; i < 16; i++) {
         inpartition[i].SetDims(128, 8);
@@ -339,11 +362,17 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
             }
         }
     }
+    
+    BYTE *lastRoundKey = m_roundKey + m_nRounds * 16;
     // 1a
     for (int i = 0; i < TABLE_8BIT_IN_SIZE; i++) {
         for (int j = 0; j < BLOCK_BYTE_NUM; j++) {
             // input decoding
             BYTE input = (BYTE)i;
+            
+            if ( ! isEncrypt ) {
+                input ^= lastRoundKey[j];
+            }
             
             //        128 x 1 = 128 x 8   mul   8 x 1
             matMulByte(temp.B, inpartition[j], &input, 8);
@@ -352,7 +381,7 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
             for (int k=0; k < BLOCK_BYTE_NUM; k++) {
                 
                 //          8 x 1                   =   8  x  8                 mul  8 x 1
-                matMulByte(&wtable.et1[0][j][i].B[k], bij.lt[0][shiftRowInv[k]].mb, &temp.B[k], 8);
+                matMulByte(&wtable.et1[0][j][i].B[k], bij.lt[0][shiftRowOp[k]].mb, &temp.B[k], 8);
             }
         }
     }
@@ -366,15 +395,20 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
             
             if ( this->use04table) {
                 input = byteMul2Mat(input,
-                                    bij.x2[ L / 32 + 4][ xorShiftRow1[i] ][ xorShiftRow2[i] ].inv,
-                                    bij.x2[ L / 32 + 4][ xorShiftRow1[i] ][ xorShiftRow2[i] + 1].inv);
+                                    bij.x2[ L / 32 + 4][ xorShiftOp1[i] ][ xorShiftOp2[i] ].inv,
+                                    bij.x2[ L / 32 + 4][ xorShiftOp1[i] ][ xorShiftOp2[i] + 1].inv);
             }
             
             //         8 x 1 =  8  x  8                mul 8 x 1
             matMulByte(&byte, bij.lt[m_nRounds-1][i].inv, &input, 8);
             
             // tbox
-            byte = tbox[m_nRounds -1][i][byte];
+            if ( isEncrypt ) {
+                byte = tbox[m_nRounds -1][i][byte];
+            }else{
+                byte = tbox[0][i][byte];
+            }
+            
             
             // out encoding
             //         128  x  1            = 128 x 8      mul  8 x 1
@@ -385,11 +419,14 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
 }
 
 template<keyLength L>
-void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij){
+void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt){
     // l^-1
     BYTE byte;
     W32b temp;
     
+    const int  (&shiftRowOp) [BLOCK_BYTE_NUM] = isEncrypt ? shiftRow     : shiftRowInv;
+    const int  (&xorShiftOp1)[BLOCK_BYTE_NUM] = isEncrypt ? xorShiftRow1 : xorShiftRow1Decode;
+    const int  (&xorShiftOp2)[BLOCK_BYTE_NUM] = isEncrypt ? xorShiftRow2 : xorShiftRow2Decode;
 
     //
     for (int i = 0; i < m_nRounds - 1; i++) {
@@ -401,13 +438,13 @@ void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables
                 BYTE input = (BYTE)k;
                 if ( 0 == i && this->use04table) {
                     input = byteMul2Mat(input,
-                                        bij.x0[0][30][shiftRow[ j ] * 2].inv,
-                                        bij.x0[0][30][shiftRow[ j ] * 2 + 1].inv);
+                                        bij.x0[0][30][shiftRowOp[ j ] * 2].inv,
+                                        bij.x0[0][30][shiftRowOp[ j ] * 2 + 1].inv);
                 }
                 if ( 0 < i && this->use04table) {
                     input = byteMul2Mat(input,
-                                        bij.x2[i - 1][ xorShiftRow1[j] ][ xorShiftRow2[j] ].inv,
-                                        bij.x2[i - 1][ xorShiftRow1[j] ][ xorShiftRow2[j] + 1].inv);
+                                        bij.x2[i - 1][ xorShiftOp1[j] ][ xorShiftOp2[j] ].inv,
+                                        bij.x2[i - 1][ xorShiftOp1[j] ][ xorShiftOp2[j] + 1].inv);
                 }
                 
                 
@@ -415,7 +452,12 @@ void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables
                 matMulByte(&byte, bij.lt[i][j].inv, &input, 8);
                 
                 // TMC
-                temp.l = tybox[j%4][tbox[i][j][byte]].l;
+                if ( isEncrypt ) {
+                    temp.l = tybox[j%4][tbox[i][j][byte]].l;
+                }else{
+                    temp.l = tybox[j%4][tbox[m_nRounds - 1 - i][j][byte]].l;
+                }
+                
                 
                 // R
                 //         32 x 1
@@ -428,9 +470,11 @@ void WaesGenerator<L>::generateTableType2(WaesTables<L> &wtable, BijectionTables
     }
 }
 
+
 template<keyLength L>
-void WaesGenerator<L>::generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij){
+void WaesGenerator<L>::generateTableType3(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt){
     W32b temp1,temp2;
+    const int (&shiftRowOp) [BLOCK_BYTE_NUM] = isEncrypt ? shiftRowInv     : shiftRow;
     
     // parition: 32 x 32  -> 32 x 8 + 32 x 8 + 32 x 8 + 32 x 8
     NTL::mat_GF2 partition[TEMPLATE_ROUND_NUM - 1][16];
@@ -466,7 +510,7 @@ void WaesGenerator<L>::generateTableType3(WaesTables<L> &wtable, BijectionTables
                 for (int m = 0; m < SECTION_BYTE_NUM ; m++) {
                     
                     //        8 x 1      =  8  x  8                              mul  8 x 1
-                    matMulByte(&temp2.B[m], bij.lt[i+1][shiftRowInv[(j/4)*4 + m]].mb, &temp1.B[m], 8);
+                    matMulByte(&temp2.B[m], bij.lt[i+1][shiftRowOp[(j/4)*4 + m]].mb, &temp1.B[m], 8);
                 }
                 wtable.et3[i][j][k].l = temp2.l;
             }
@@ -477,7 +521,7 @@ void WaesGenerator<L>::generateTableType3(WaesTables<L> &wtable, BijectionTables
 
 
 template<keyLength L>
-void WaesGenerator<L>::generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij){
+void WaesGenerator<L>::generateTableType4(WaesTables<L> &wtable, BijectionTables<L> &bij, bool isEncrypt){
     
     // Now compute cascade of XOR tables
     // We have 8*32 XOR tables, they sum T1: [01] [23] [45] [67] [89] [1011] [1213] [1415]
@@ -614,22 +658,38 @@ void WaesGenerator<L>::generateTableType4(WaesTables<L> &wtable, BijectionTables
 
 
 template<keyLength L>
-int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables){
+int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables, bool isEncrypt){
     
     BijectionTables<L> bijtable;
     
-    generateTMCtables(key);
+    generateTMCtables(key, isEncrypt);
     
+//    for (int i=0; i<L/32+6; i++) {
+//        for (int j=0; j<16; j++) {
+//            for (int k=0; k<256; k++) {
+//                tables.tbox[i][j][k] = tbox[i][j][k];
+//            }
+//        }
+//    }
+//    for (int i=0; i<4; i++) {
+//        for (int j=0; j<256; j++) {
+//            tables.tybox[i][j].l = tybox[i][j].l;
+//        }
+//    }
+//    for (int i=0; i<16*(L/32+7); i++) {
+//        tables.m_roundKey[i] = m_roundKey[i];
+//    }
+//    return 0;
     generateRandomBijectionTables(bijtable);
     
-    generateTableType1(tables, bijtable);
+    generateTableType1(tables, bijtable, isEncrypt);
     
-    generateTableType2(tables, bijtable);
+    generateTableType2(tables, bijtable, isEncrypt);
     
-    generateTableType3(tables, bijtable);
+    generateTableType3(tables, bijtable, isEncrypt);
     
     if (this->use04table) {
-        generateTableType4(tables, bijtable);
+        generateTableType4(tables, bijtable, isEncrypt);
     }
     
     
@@ -647,6 +707,10 @@ WaesGenerator<L>::WaesGenerator():m_nKeyIn32(L/32),m_nRounds(L/32+6){
     this->use08ident = false;
     this->use32ident = false;
     
+    // whether or not use these nibble xor tables, for development use,
+    // always set to true latter, because only set xor table is not enough
+    // waes proccess also need to change.
+    // but to make generate faster, remove this variable
     this->use04table = true;
 }
 
@@ -726,7 +790,6 @@ const int WaesGenerator<L>::shiftRowInv[BLOCK_BYTE_NUM] = {
 // 130, 131, 132, 133,  apart last, shiftrow     130, 201, 272, 63
 // 200, 201, 202, 203,  -------------------->    200, 271, 62,  133
 // 270, 271, 272, 273,                           270, 61,  132, 203
-
 template<keyLength L>
 const int WaesGenerator<L>::xorShiftRow1[16] = {
     6,  13, 20, 27,
@@ -743,6 +806,34 @@ const int WaesGenerator<L>:: xorShiftRow2[16] = {
     0, 2, 4, 6
 };
 
+//
+//0  60,  61,  62,  63,                               60,  271, 202, 133
+//4  130, 131, 132, 133,  apart last, shiftrowinv     130, 61,  272, 203
+//8  200, 201, 202, 203,  ----------------------->    200, 131, 62,  273
+//12 270, 271, 272, 273,                              270, 201, 132, 63
+template<keyLength L>
+const int WaesGenerator<L>::xorShiftRow1Decode[16] = {
+    6,  27, 20, 13,
+    13, 6,  27, 20,
+    20, 13, 6,  27,
+    27, 20, 13, 6
+};
+
+template<keyLength L>
+const int WaesGenerator<L>:: xorShiftRow2Decode[16] = {
+    0, 2, 4, 6,
+    0, 2, 4, 6,
+    0, 2, 4, 6,
+    0, 2, 4, 6
+};
+
+template<keyLength L>
+const int WaesGenerator<L>:: emptyMap[16] = {
+    0, 1, 2, 3,
+    4, 5, 6, 7,
+    8, 9, 10,11,
+    12,13,14,15
+};
 
 template<keyLength L>
 const BYTE WaesGenerator<L>::mc[SECTION_NUM][SECTION_BYTE_NUM] = {
@@ -750,5 +841,12 @@ const BYTE WaesGenerator<L>::mc[SECTION_NUM][SECTION_BYTE_NUM] = {
     {0x03, 0x02, 0x01, 0x01},
     {0x01, 0x03, 0x02, 0x01},
     {0x01, 0x01, 0x03, 0x02}
+};
+template<keyLength L>
+const BYTE WaesGenerator<L>::mcInv[SECTION_NUM][SECTION_BYTE_NUM] = {
+    {0x0e, 0x09, 0x0d, 0x0b},
+    {0x0b, 0x0e, 0x09, 0x0d},
+    {0x0d, 0x0b, 0x0e, 0x09},
+    {0x09, 0x0d, 0x0b, 0x0e}
 };
 #endif /* defined(__whiteboxAes__waesGenerator__) */

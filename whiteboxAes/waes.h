@@ -13,7 +13,7 @@ class WAES{
     
 private:
     
-    //Nb Number of columns (32-bit words) comprising the State. For this standard, Nb = 4.
+    //Nb Number of columns (32-bit words) comprising the State. For this standard = 4.
     static const int m_nSection;
     
     //Nr Number of rounds, which is a function of Nk and Nb (which isfixed). For this standard, Nr = 10, 12, or 14.
@@ -76,22 +76,33 @@ void WAES<L>::mixColumns(W128b &state){
 template<keyLength L>
 void WAES<L>::encryptBlock(W128b &in, BYTE *out){
     
-    static const int map[N_BYTES] = {
+    static const int map[BLOCK_BYTE_NUM] = {
         0, 5, 10,15,
         4, 9, 14,3,
         8, 13,2, 7,
         12,1, 6, 11
     };
     
-    W128b state,t1ares[N_BYTES], t1bres[N_BYTES];
+    W128b state,t1ares[BLOCK_BYTE_NUM], t1bres[BLOCK_BYTE_NUM];
     W32b t2res[16];
     
     // input decoding
-    for (int i=0; i<N_BYTES; i++) {
+    for (int i=0; i<BLOCK_BYTE_NUM; i++) {
         W128CP(keyTable.et1[0][i][in.B[i]], t1ares[i]);
     }
+    for (int i=0; i<8; i++) {
+        W128bXor(t1ares[i*2], t1ares[i*2], t1ares[i*2+1], keyTable.ex0[0][i]);
+    }
+    for (int i=0; i<4; i++) {
+        W128bXor(t1ares[i*4], t1ares[i*4], t1ares[i*4+2], keyTable.ex0[0][8+i]);
+    }
+    for (int i=0; i<2; i++) {
+        W128bXor(t1ares[i*8], t1ares[i*8], t1ares[i*8+4], keyTable.ex0[0][12+i]);
+    }
+    W128bXor(t1ares[0], t1ares[0], t1ares[8], keyTable.ex0[0][14]);
+    
     for (int i=1; i<16; i++) {
-        W128bXor(t1ares[0], t1ares[0], t1ares[i]);
+        //W128bXor(t1ares[0], t1ares[0], t1ares[i]);
     }
     
     W128CP(t1ares[0], state);
@@ -100,14 +111,17 @@ void WAES<L>::encryptBlock(W128b &in, BYTE *out){
     // round 1 - 9
     for (int r=0; r<m_nRounds-1; r++) {
         // apply t2 tables
-        for (int j=0; j<N_BYTES; j+=4) {
+        for (int j=0; j<BLOCK_BYTE_NUM; j+=4) {
             t2res[j+0].l = keyTable.et2[r][j+0][state.B[map[j+0]]].l;
             t2res[j+1].l = keyTable.et2[r][j+1][state.B[map[j+1]]].l;
             t2res[j+2].l = keyTable.et2[r][j+2][state.B[map[j+2]]].l;
             t2res[j+3].l = keyTable.et2[r][j+3][state.B[map[j+3]]].l;
             
             // not xor table now
-            t2res[j+0].l = t2res[j+0].l ^ t2res[j+1].l ^ t2res[j+2].l ^ t2res[j+3].l;
+            // t2res[j+0].l = t2res[j+0].l ^ t2res[j+1].l ^ t2res[j+2].l ^ t2res[j+3].l;
+            W32bXor(t2res[j + 0], t2res[j + 0], t2res[j + 1], keyTable.ex4t2t3[r][j/4*3+0]);
+            W32bXor(t2res[j + 2], t2res[j + 2], t2res[j + 3], keyTable.ex4t2t3[r][j/4*3+1]);
+            W32bXor(t2res[j + 0], t2res[j + 0], t2res[j + 2], keyTable.ex4t2t3[r][j/4*3+2]);
         }
         
         for (int j=0; j<m_nSection; j++) {
@@ -115,7 +129,7 @@ void WAES<L>::encryptBlock(W128b &in, BYTE *out){
         }
         
         // apply t3 tables;
-        for (int j=0; j<N_BYTES; j+=4) {
+        for (int j=0; j<BLOCK_BYTE_NUM; j+=4) {
             
             t2res[j+0].l = keyTable.et3[r][j+0][state.B[j+0]].l;
             t2res[j+1].l = keyTable.et3[r][j+1][state.B[j+1]].l;
@@ -123,7 +137,10 @@ void WAES<L>::encryptBlock(W128b &in, BYTE *out){
             t2res[j+3].l = keyTable.et3[r][j+3][state.B[j+3]].l;
             
             // not xor table now
-            t2res[j+0].l = t2res[j+0].l ^ t2res[j+1].l ^ t2res[j+2].l ^ t2res[j+3].l;
+            //t2res[j+0].l = t2res[j+0].l ^ t2res[j+1].l ^ t2res[j+2].l ^ t2res[j+3].l;
+            W32bXor(t2res[j + 0], t2res[j + 0], t2res[j + 1], keyTable.ex4t3t2[r][j/4*3+0]);
+            W32bXor(t2res[j + 2], t2res[j + 2], t2res[j + 3], keyTable.ex4t3t2[r][j/4*3+1]);
+            W32bXor(t2res[j + 0], t2res[j + 0], t2res[j + 2], keyTable.ex4t3t2[r][j/4*3+2]);
         }
         
         for (int j=0; j<m_nSection; j++) {
@@ -135,13 +152,26 @@ void WAES<L>::encryptBlock(W128b &in, BYTE *out){
     matShow(state.B);
     
     // final round
-    for (int j=0; j<N_BYTES; j++) {
+    for (int j=0; j<BLOCK_BYTE_NUM; j++) {
         //t1bres[0].B[j] = keyTable.tbox10[j][state.B[map[j]]];
-        t1bres[0].B[j] = keyTable.et1[1][j][state.B[map[j]]].B[0];
+        //t1bres[0].B[j] = keyTable.et1[1][j][state.B[map[j]]].B[0];
         W128CP(keyTable.et1[1][j][state.B[map[j]]], t1bres[j]);
     }
+    
+    for (int i=0; i<8; i++) {
+        W128bXor(t1bres[i*2], t1bres[i*2], t1bres[i*2+1], keyTable.ex0[1][i]);
+    }
+    for (int i=0; i<4; i++) {
+        W128bXor(t1bres[i*4], t1bres[i*4], t1bres[i*4+2], keyTable.ex0[1][8+i]);
+    }
+    for (int i=0; i<2; i++) {
+        W128bXor(t1bres[i*8], t1bres[i*8], t1bres[i*8+4], keyTable.ex0[1][12+i]);
+    }
+    W128bXor(t1bres[0], t1bres[0], t1bres[8], keyTable.ex0[1][14]);
+    
+    
     for (int i=1; i<16; i++) {
-        W128bXor(t1bres[0], t1bres[0], t1bres[i]);
+        //W128bXor(t1bres[0], t1bres[0], t1bres[i]);
     }
     W128CP(t1bres[0],state);
     

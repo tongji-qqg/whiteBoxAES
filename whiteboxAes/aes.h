@@ -125,7 +125,7 @@ void AES<L>::inv_mixColumns(W128b &state, int rk){
         {0x0d, 0x09, 0x0e, 0x0b},
         {0x0b, 0x0d, 0x09, 0x0e}};
     
-    BYTE  res[4], kres[4];
+    BYTE  res[4];
     
     for (int i = 0; i < 4; i++) {
         
@@ -216,28 +216,28 @@ void AES<L>::decryptBlock(BYTE* in, BYTE *out){
     //addRoundKey(state, m_Nr-1);
     int i=0;
     for(i=m_Nr-1;i > 0;i--){
-        std::cout << i << "\n";
-        matShow(state.B);
-        std::cout << "roundkey" << "\n";
-        matShow(m_w + (i+1)*16 );
+        //std::cout << i << "\n";
+        //matShow(state.B);
+        //std::cout << "roundkey" << "\n";
+        //matShow(m_w + (i+1)*16 );
     
         inv_shiftRows( state );
-        std::cout << "shiftrow" << "\n";
-        matShow(state.B);
+        //std::cout << "shiftrow" << "\n";
+        //matShow(state.B);
         
         inv_subBytes( state );
-        std::cout << "subbyte,shiftrow" << "\n";
-        matShow(state.B);
+        //std::cout << "subbyte,shiftrow" << "\n";
+        //matShow(state.B);
         
         
         addRoundKey(state,i);
-        std::cout << "addroundkey" << "\n";
-        matShow(state.B);
+        //std::cout << "addroundkey" << "\n";
+        //matShow(state.B);
  
         
         inv_mixColumns( state, i);
-        std::cout << "mixcol" << "\n";
-        matShow(state.B);
+        //std::cout << "mixcol" << "\n";
+        //matShow(state.B);
     }
     
     //matShow(state.B);

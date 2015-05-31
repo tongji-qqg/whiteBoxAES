@@ -16,6 +16,5 @@
 #include <NTL/mat_GF2.h>
 
 NTL::mat_GF2& randomMixingBijection(NTL::mat_GF2 &x, int rank);
-template<typename T> int generateRandomBijectionT(T * bijection, T * inverse, int size, int init);
 
 #endif /* defined(__whiteboxAes__bijection__) */

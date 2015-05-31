@@ -76,10 +76,6 @@ public:
     //             rounds     | 12 section   | 32 = 8 x 4
     WAES_TB_TYPE4 ex4t2t3[L/32 + 5][12]       [8];
     WAES_TB_TYPE4 ex4t3t2[L/32 + 5][12]       [8];
-    
-    TB256 tbox[L/32+6][BLOCK_BYTE_NUM];
-    W32b tybox[4][256];
-    BYTE m_roundKey[4*4*(L/32+7)];
 
 };
 

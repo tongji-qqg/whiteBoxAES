@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		025C64401B1034A900B0F605 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025C643F1B1034A900B0F605 /* util.cpp */; };
 		025C64421B105A5700B0F605 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025C64411B105A5700B0F605 /* main.cpp */; };
+		02EFD0D21B19CC2E001E9142 /* test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02EFD0CF1B19CBF7001E9142 /* test.cpp */; };
 		02F017F11B11F3A700C95D01 /* libntl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 02F017F01B11F3A700C95D01 /* libntl.a */; settings = {ATTRIBUTES = (Weak, ); }; };
 		02F017FF1B12E27A00C95D01 /* bijection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02F017FD1B12E27A00C95D01 /* bijection.cpp */; };
 /* End PBXBuildFile section */
@@ -32,6 +33,9 @@
 		025C643E1B10341C00B0F605 /* type.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = type.h; sourceTree = "<group>"; };
 		025C643F1B1034A900B0F605 /* util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = util.cpp; sourceTree = "<group>"; };
 		025C64411B105A5700B0F605 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		02EFD0CF1B19CBF7001E9142 /* test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = test.cpp; sourceTree = "<group>"; };
+		02EFD0D01B19CBF7001E9142 /* test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test.h; sourceTree = "<group>"; };
+		02EFD0D81B19D4C4001E9142 /* WaesFile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WaesFile.h; sourceTree = "<group>"; };
 		02F017EF1B11750B00C95D01 /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aes.h; sourceTree = "<group>"; };
 		02F017F01B11F3A700C95D01 /* libntl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libntl.a; path = ../../../../lib/libntl.a; sourceTree = "<group>"; };
 		02F017FD1B12E27A00C95D01 /* bijection.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bijection.cpp; sourceTree = "<group>"; };
@@ -74,12 +78,15 @@
 				02F017EF1B11750B00C95D01 /* aes.h */,
 				025C64411B105A5700B0F605 /* main.cpp */,
 				025C643B1B10320000B0F605 /* waes.h */,
+				02EFD0D81B19D4C4001E9142 /* WaesFile.h */,
 				02F018011B134D9400C95D01 /* waesGenerator.h */,
 				025C643E1B10341C00B0F605 /* type.h */,
 				025C643D1B1033EE00B0F605 /* util.h */,
 				025C643F1B1034A900B0F605 /* util.cpp */,
 				02F017FD1B12E27A00C95D01 /* bijection.cpp */,
 				02F017FE1B12E27A00C95D01 /* bijection.h */,
+				02EFD0CF1B19CBF7001E9142 /* test.cpp */,
+				02EFD0D01B19CBF7001E9142 /* test.h */,
 			);
 			path = whiteboxAes;
 			sourceTree = "<group>";
@@ -140,6 +147,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02EFD0D21B19CC2E001E9142 /* test.cpp in Sources */,
 				025C64401B1034A900B0F605 /* util.cpp in Sources */,
 				025C64421B105A5700B0F605 /* main.cpp in Sources */,
 				02F017FF1B12E27A00C95D01 /* bijection.cpp in Sources */,

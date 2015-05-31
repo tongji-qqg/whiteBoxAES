@@ -57,7 +57,7 @@ inline void W128CP(W128b &s, W128b& t){
 //}
 
 // numOfBits is input byte bits number
-inline void matMulByte(BYTE *res, NTL::mat_GF2 & mat, BYTE * b, int numOfBits=8){
+inline void matMulByte(BYTE *res, NTL::mat_GF2 & mat, BYTE * b, int numOfBits=8, bool isInv = false){
     NTL::vec_GF2 mv, rv;
     mv.SetLength(numOfBits);
     int numOfBytes = numOfBits / 8;
@@ -68,7 +68,11 @@ inline void matMulByte(BYTE *res, NTL::mat_GF2 & mat, BYTE * b, int numOfBits=8)
             t = t >> 1;
         }
     }
-    NTL::mul(rv, mat, mv);
+    if (isInv) {
+        NTL::mul(rv,mv,mat);
+    }else{
+        NTL::mul(rv, mat, mv);
+    }
     int outOfBytes = (int)rv.length() / 8;
     for (int i = 0 ; i < outOfBytes; i++) {
         res[i] = (BYTE)NTL::rep(rv.get(i * 8));

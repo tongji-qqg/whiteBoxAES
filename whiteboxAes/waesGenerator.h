@@ -90,10 +90,14 @@ private:
     TB256 tbox[L/32+6][BLOCK_BYTE_NUM];
     W32b tybox[4][256];
     
+    NTL::mat_GF2 exf, exg;
+    
     bool useIOident;  //
     bool use04ident;
     bool use08ident;
     bool use32ident;
+    
+    bool haveSetExEncoding;
     
     bool use04table;
 private:
@@ -144,7 +148,7 @@ private:
      *       for generate lookup table
      * --------------------------------------
      */
-    void generateRandomBijectionTables(BijectionTables<L> &bij);
+    void generateRandomBijectionTables(BijectionTables<L> &bij, bool isEncrypt = true);
     
     void generateTMCtables(const BYTE* key, bool isEncrypt = true);
     
@@ -161,9 +165,23 @@ public:
     
     ~WaesGenerator(){};
     
+    int setExternalEncoding(NTL::mat_GF2 &f, NTL::mat_GF2 &g);
+    
     int  generateKeyTables(const BYTE* key, WaesTables<L> &tables, bool isEncrypt = true);
 };
 
+
+template<keyLength L>
+int WaesGenerator<L>::setExternalEncoding(NTL::mat_GF2 &f, NTL::mat_GF2 &g){
+    if (f.NumCols() == 128 && f.NumRows() == 128 &&
+        g.NumCols() == 128 && g.NumRows() == 128) {
+        this->exf  = f;
+        this->exg  = g;
+        this->haveSetExEncoding = true;
+        return 0;
+    }
+    return 1;
+}
 
 
 template<keyLength L>
@@ -200,12 +218,16 @@ void WaesGenerator<L>::expandKey(const BYTE *key){
 // random generate mixingbijection
 // uses by total white box encrypt process
 template<keyLength L>
-void WaesGenerator<L>::generateRandomBijectionTables(BijectionTables<L>&bij){
+void WaesGenerator<L>::generateRandomBijectionTables(BijectionTables<L>&bij,bool isEncrypt){
     if (this->useIOident) {
         NTL::ident(bij.iot[0].mb, 128);
         NTL::ident(bij.iot[1].mb, 128);
-    }
-    else{
+    }else if (this->haveSetExEncoding){
+        //  G.  Enc().F
+        //  F-1.Dec().G-1
+        bij.iot[0].mb = exf;
+        bij.iot[1].mb = exg;
+    }else{
         randomMixingBijection(bij.iot[0].mb, 128);
         randomMixingBijection(bij.iot[1].mb, 128);
     }
@@ -358,7 +380,7 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
         for (int j=0; j<128; j++) {
             for (int k=0; k<8; k++) {
                 inpartition[i][j][k] = bij.iot[0].inv[j][i*8+k];
-                outpartition[i][j][k] = bij.iot[0].inv[j][i*8+k];
+                outpartition[i][j][k] = bij.iot[1].mb[j][i*8+k];
             }
         }
     }
@@ -370,13 +392,18 @@ void WaesGenerator<L>::generateTableType1(WaesTables<L> &wtable, BijectionTables
             // input decoding
             BYTE input = (BYTE)i;
             
-            if ( ! isEncrypt ) {
-                input ^= lastRoundKey[j];
-            }
             
             //        128 x 1 = 128 x 8   mul   8 x 1
             matMulByte(temp.B, inpartition[j], &input, 8);
         
+            
+            if (j == 0 && ! isEncrypt ){
+                for (int k=0; k<16; k++) {
+                    temp.B[k] ^= lastRoundKey[k];
+                }
+            }
+            
+            
             // l 0
             for (int k=0; k < BLOCK_BYTE_NUM; k++) {
                 
@@ -664,22 +691,6 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
     
     generateTMCtables(key, isEncrypt);
     
-//    for (int i=0; i<L/32+6; i++) {
-//        for (int j=0; j<16; j++) {
-//            for (int k=0; k<256; k++) {
-//                tables.tbox[i][j][k] = tbox[i][j][k];
-//            }
-//        }
-//    }
-//    for (int i=0; i<4; i++) {
-//        for (int j=0; j<256; j++) {
-//            tables.tybox[i][j].l = tybox[i][j].l;
-//        }
-//    }
-//    for (int i=0; i<16*(L/32+7); i++) {
-//        tables.m_roundKey[i] = m_roundKey[i];
-//    }
-//    return 0;
     generateRandomBijectionTables(bijtable);
     
     generateTableType1(tables, bijtable, isEncrypt);
@@ -701,11 +712,11 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
 
 
 template<keyLength L>
-WaesGenerator<L>::WaesGenerator():m_nKeyIn32(L/32),m_nRounds(L/32+6){
-    this->useIOident = true;
-    this->use04ident = false;
-    this->use08ident = false;
-    this->use32ident = false;
+WaesGenerator<L>::WaesGenerator():m_nKeyIn32(L/32),m_nRounds(L/32+6),haveSetExEncoding(false){
+    this->useIOident = false;
+    this->use04ident = true;
+    this->use08ident = true;
+    this->use32ident = true;
     
     // whether or not use these nibble xor tables, for development use,
     // always set to true latter, because only set xor table is not enough

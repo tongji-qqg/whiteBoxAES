@@ -15,11 +15,19 @@
 #include <NTL/GF2.h>
 #include <NTL/mat_GF2.h>
 
+// Local dependencies
 #include "aes.h"
 #include "waes.h"
 #include "waesGenerator.h"
 #include "bijection.h"
 
+
+//  function instruction:
+//  print help infomation
+//  self test: aes test, waes test, generate file test, bijction test,
+//  aes encode,decode in   [ECB, CBC]
+//  waes encode, decode in [ECB, CBC]
+//  waes generate table save 2 file [whether use external encoding]
 using namespace std;
 
 void compareBlock(BYTE* b1, BYTE* b2){
@@ -100,18 +108,34 @@ void testEncodeDecode(){
         0xd8,0xcd,0xb7,0x80,
         0x70,0xb4,0xc5,0x5a
     };
-    BYTE res[16];
+    BYTE res1[16], res2[16], res3[16], res4[16], res5[16];
     AES<key128> aes(key);
-    WAES<key128> waes(key);
+    WAES<key256> waes("/Users/bryce/wkey256");
     
     //aes.encryptBlock(input, res);
     
     //compareBlock(res, output);
-    waes.encryptBlock(input, res);
-    compareBlock(res, output);
+    waes.encryptBlock(input, res1);
+    compareBlock(res1, output);
     
-    waes.decryptBlock(output, res);
-    compareBlock(res, input);
+    waes.decryptBlock(res1, res2);
+    compareBlock(res2, input);
+    
+    //waes.saveKey2File("/Users/bryce/wkey256");
+    
+//    matMulByte(res3, waes.f, input, 128);
+//    matShow(res3);
+//    aes.encryptBlock(res3, res4);
+//    matShow(res4);
+//    matMulByte(res5, waes.g, res4, 128);
+//    matShow(res5);
+//    matMulByte(res3, waes.gi, res5, 128);
+//    matShow(res3);
+//    aes.decryptBlock(res3, res4);
+//    matShow(res4);
+//    matMulByte(res5, waes.fi, res4, 128);
+//    matShow(res5);
+    //compareBlock(res2, res5);
     
     //aes.decryptBlock(output, res);
     //compareBlock(res, input);
@@ -143,8 +167,8 @@ int main(int argc, const char * argv[]) {
     //matShow(b2);
     
 //    NTL::mat_GF2 m1, m2 ,m3, m4;
-//    m1 = randomMixingBijection(m1, 4);
-//    m2 = randomMixingBijection(m2, 4);
+//    m1 = randomMixingBijection(m1, 8);
+//    m2 = randomMixingBijection(m2, 8);
 //    m3 = randomMixingBijection(m3, 4);
 //    WAES_TB_TYPE4 tp4;
 //    cout << m1 << "\n\n" << m2 << "\n\n" << m3 << "\n";
@@ -160,9 +184,13 @@ int main(int argc, const char * argv[]) {
     
     
 //    NTL::mat_GF2 m1, m2 ,m3, m4;
-//    m1 = randomMixingBijection(m1, 4);
-//    m2 = randomMixingBijection(m2, 4);
+//    m1 = randomMixingBijection(m1, 8);
+//    m2 = randomMixingBijection(m2, 8);
 //    NTL::inv(m3, m1);  NTL::inv(m4, m2);
+//    BYTE i = 9,res1 =0, res2=0;
+//    matMulByte(&res1, m1, &i, 8);
+//    matMulByte(&res2, m3, &res1, 8);
+//    cout << res2-0;
 //    cout << m1 << "\n\n" << m2 << endl;
 //    printByte( byteMul2Mat(0xff, m1, m2)  );
 //    cout << m3 << "\n\n" << m4;

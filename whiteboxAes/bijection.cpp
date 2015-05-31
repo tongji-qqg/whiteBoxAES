@@ -8,34 +8,6 @@
 
 #include "bijection.h"
 
-template<typename T> int generateRandomBijectionT(T * bijection, T * inverse, int size, int init){
-    int i;
-    if (init) {
-        for(i=0;i<size;i++){
-            bijection[i] = i;
-            inverse[i] = i;
-        }
-    }
-    
-    // yes, we start from second element on purpose, to produce uniform distribution
-    for(i=1; i<size; i++){
-        // rnd is index from interval [0, i]
-        int rnd = rand() % (i+1);
-        
-        // swap indexes
-        T idx = inverse[bijection[rnd]];
-        inverse[bijection[rnd]] = inverse[bijection[i]];
-        inverse[bijection[i]]   = idx;
-        
-        // swap values
-        T tmp = bijection[rnd];
-        bijection[rnd] = bijection[i];
-        bijection[i] = tmp;
-    }
-    
-    return 0;
-}
-
 
 /**
  * generate a random non single matrix of rank n

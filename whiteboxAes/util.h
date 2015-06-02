@@ -14,6 +14,8 @@
 #include <NTL/mat_GF2.h>
 #include <NTL/GF2.h>
 
+# define SAFE_DELETE(p) if(NULL != p){delete p; p = NULL;}
+
 BYTE gmult(BYTE a, BYTE b);
 void printByte(BYTE b);
 void matShow(const BYTE *out,int size=16);
@@ -144,6 +146,7 @@ inline void W128bXor(W128b&x, W128b &a, W128b&b, WAES_TB_TYPE4(&t)[32]){
     }
 }
 
+
 inline void W32bXor(W32b&x, W32b &a, W32b&b, WAES_TB_TYPE4(&t)[8]){
     BYTE byteHigh, byteLow, bit4High, bit4Low;
     for (int i=0; i<4; i++) {
@@ -154,6 +157,53 @@ inline void W32bXor(W32b&x, W32b &a, W32b&b, WAES_TB_TYPE4(&t)[8]){
         x.B[i] = (bit4High << 4) ^ (bit4Low & 0x0f);
     }
 }
+
+
+
+// shrink is make 256 byte table to 128 byte
+// with first 4 bits removed
+// this do reduce table size
+// but i dont like it, 4bit is not friendly to program（cpu already 64!）reduce performance.
+// just because mentor require me must do this,
+// may be apply to some small memory device.
+//
+// |00|,|01|,|02|,|03|,|04|,|05|
+//  |   /    /    /
+//  |  /   /   /
+//  | /  /  /
+// |01|,|23|,|45|
+//
+inline BYTE lookShrankXorTable(WAES_TB_TYPE4S &t, BYTE index){
+    
+    BYTE comboByte = t[index / 2];
+    if ( 0 == index % 2 ) {  // at high 4 bit
+        comboByte = comboByte >> 4;
+    }
+    return comboByte;
+}
+
+inline void W128bShrankXor(W128b&x, W128b &a, W128b&b, WAES_TB_TYPE4S(&t)[32]){
+    BYTE byteHigh, byteLow, bit4High, bit4Low;
+    for (int i=0; i<16; i++) {
+        byteHigh = (a.B[i] & 0xf0) ^ (b.B[i] >> 4);
+        byteLow  = (a.B[i] << 4 )  ^ (b.B[i] & 0x0f);
+        bit4High = lookShrankXorTable(t[i * 2], byteHigh);
+        bit4Low  = lookShrankXorTable(t[i * 2 + 1], byteLow);
+        x.B[i] = (bit4High << 4) ^ (bit4Low & 0x0f);
+    }
+}
+
+inline void W32bShrankXor(W32b&x, W32b &a, W32b&b, WAES_TB_TYPE4S(&t)[8]){
+    BYTE byteHigh, byteLow, bit4High, bit4Low;
+    for (int i=0; i<4; i++) {
+        byteHigh = (a.B[i] & 0xf0) ^ (b.B[i] >> 4);
+        byteLow  = (a.B[i] << 4 )  ^ (b.B[i] & 0x0f);
+        bit4High = lookShrankXorTable(t[i * 2], byteHigh);
+        bit4Low  = lookShrankXorTable(t[i * 2 + 1], byteLow);
+        x.B[i] = (bit4High << 4) ^ (bit4Low & 0x0f);
+    }
+}
+
 // no use for make xor table, for this is sick
 //BIT4 ht[16], lt[16]; // 4 bit is 16 total
 //NTL::vec_GF2 vec, res; vec.SetLength(4);

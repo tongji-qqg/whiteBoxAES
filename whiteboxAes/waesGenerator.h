@@ -90,7 +90,7 @@ private:
     TB256 tbox[L/32+6][BLOCK_BYTE_NUM];
     W32b tybox[4][256];
     
-    NTL::mat_GF2 exf, exg;
+    NTL::mat_GF2 exf_inv, exg, exf;
     
     bool useIOident;  //
     bool use04ident;
@@ -167,15 +167,31 @@ public:
     
     int setExternalEncoding(NTL::mat_GF2 &f, NTL::mat_GF2 &g);
     
-    int  generateKeyTables(const BYTE* key, WaesTables<L> &tables, bool isEncrypt = true);
+    int generateKeyTables(const BYTE* key, WaesTables<L> &tables, bool isEncrypt = true);
+    
+    int generateKeyTablesAndShrankXor(const BYTE * key, WaesTablesShrankXor<L> &tables, bool isEncrypt = true);
 };
 
 
+// cautious, here
+// actually, i use model like this
+//
+//                 encrypt                  decrypt
+//       -------------------------------------------------------
+//       |                         |                           |
+// f  *  |  f^-1  *  en()   *   g  | g^-1   *   de()    *  h   |  *   h-1
+//       |                         |                           |
+//       -------------------------------------------------------
+//
+// so set extrenal encoding is to set f^-1 and g (or g^-1 and h)
+// in other words NTL::mat_GF2 &f means inv of f
 template<keyLength L>
 int WaesGenerator<L>::setExternalEncoding(NTL::mat_GF2 &f, NTL::mat_GF2 &g){
+    
     if (f.NumCols() == 128 && f.NumRows() == 128 &&
         g.NumCols() == 128 && g.NumRows() == 128) {
-        this->exf  = f;
+        this->exf_inv  = f;
+        NTL::inv(exf, exf_inv);
         this->exg  = g;
         this->haveSetExEncoding = true;
         return 0;
@@ -703,20 +719,56 @@ int  WaesGenerator<L>::generateKeyTables(const BYTE * key, WaesTables<L> &tables
         generateTableType4(tables, bijtable, isEncrypt);
     }
     
-    
-    
     return 0;
 }
 
+
+template<keyLength L>
+int  WaesGenerator<L>::generateKeyTablesAndShrankXor(const BYTE * key, WaesTablesShrankXor<L> &tables, bool isEncrypt){
+    
+    WaesTables<L> tempTable;
+    
+    BIT4 * type4[3];
+    type4[0] = (BIT4 *)&tempTable.ex0;
+    type4[1] = (BIT4 *)&tempTable.ex4t2t3;
+    type4[2] = (BIT4 *)&tempTable.ex4t3t2;
+    
+    int size[3];
+    size[0] = sizeof(tempTable.ex0)     / TABLE_8BIT_IN_SIZE;
+    size[1] = sizeof(tempTable.ex4t3t2) / TABLE_8BIT_IN_SIZE;
+    size[2] = sizeof(tempTable.ex4t2t3) / TABLE_8BIT_IN_SIZE;
+    
+    BIT4 *type4s[3];
+    type4s[0] = (BIT4*)&tables.ex0;
+    type4s[1] = (BIT4*)&tables.ex4t2t3;
+    type4s[2] = (BIT4*)&tables.ex4t3t2;
+    
+    this->generateKeyTables(key, tempTable, isEncrypt);
+    
+    memcpy((void*)tables.et1, (void*)tempTable.et1, sizeof(tables.et1));
+    memcpy((void*)tables.et2, (void*)tempTable.et2, sizeof(tables.et2));
+    memcpy((void*)tables.et3, (void*)tempTable.et3, sizeof(tables.et3));
+    
+    for (int i=0; i<3 ; i++) {
+        for (int j=0; j<size[i]; j++) { // size[i]: num of 256 byte tables. shrink to 128
+            for (int k=0; k<128; k++) {
+                BYTE h = type4[i][j * 256 + k * 2];
+                BYTE l = type4[i][j * 256 + k * 2 + 1];
+                type4s[i][j * 128 + k] = (h << 4) ^ (l & 0x0f);
+            }
+        }
+    }
+    return 0;
+}
 
 
 
 template<keyLength L>
 WaesGenerator<L>::WaesGenerator():m_nKeyIn32(L/32),m_nRounds(L/32+6),haveSetExEncoding(false){
     this->useIOident = false;
-    this->use04ident = true;
-    this->use08ident = true;
-    this->use32ident = true;
+    this->use04ident = false;
+    this->use08ident = false;
+    this->use32ident = false;
     
     // whether or not use these nibble xor tables, for development use,
     // always set to true latter, because only set xor table is not enough

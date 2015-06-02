@@ -18,6 +18,7 @@
 // Local dependencies
 #include "aes.h"
 #include "waes.h"
+#include "waesExpandXor.h"
 #include "waesGenerator.h"
 #include "bijection.h"
 
@@ -51,38 +52,38 @@ template<keyLength L>
 void compare(BYTE *key,BYTE *in){
     
     clock_t t;
-    BYTE aesOut[16];
-    BYTE waesOut[16];
+    BYTE aesEnOut[16], aesDeOut[16];
+    BYTE waesEnOut[16], waesDeOut[16];
+    BYTE waessxEnOut[16], waessxDeOut[16];
     
     
     AES<L> aes(key);
     t = clock();
-    aes.encryptBlock(in, aesOut);
+    aes.encryptBlock(in, aesEnOut);
+    aes.decryptBlock(aesEnOut, aesDeOut);
     t = clock() - t;
     printf ("AES %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
     
     
-    WAES<L> waes(key);
+    //WAES<L> waes(key);
+    WAES<L> waes("/Users/bryce/wkey128.sx.en","/Users/bryce/wkey128.sx.de");
     t = clock();
-    waes.encryptBlock(in,waesOut);
+    waes.encryptBlock(in,waesEnOut);
+    waes.decryptBlock(waesEnOut, waesDeOut);
     t = clock() - t;
     printf ("WAES %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
     
+    //compareBlock(aesDeOut, waesDeOut);
     
-    bool flag = true;
-    for(int j=0;j<16;j++){
-        printByte(waesOut[j]);
-        cout << ",";
-        printByte(aesOut[j]);
-        cout << endl;
-        if (waesOut[j] != aesOut[j]) {
-            flag = false;
-        }
-    }
-    if (flag)
-        cout << "same" << endl;
-    else
-        cout << "not same" << endl;
+    //WAESSX<L>waessx(key);
+    WAESEX<L>waesex("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
+    t = clock();
+    waesex.encryptBlock(in,waessxEnOut);
+    waesex.decryptBlock(waessxEnOut, waessxDeOut);
+    t = clock() - t;
+    printf ("WAES Expand Block %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
+    
+    //compareBlock(aesDeOut, waessxDeOut);
 }
 
 
@@ -110,18 +111,23 @@ void testEncodeDecode(){
     };
     BYTE res1[16], res2[16], res3[16], res4[16], res5[16];
     AES<key128> aes(key);
-    WAES<key256> waes("/Users/bryce/wkey256");
-    
+    //WAESSX<key128> waes("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
+    //WAES<key128> waes("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
+    WAES<key128> waes(key);
     //aes.encryptBlock(input, res);
     
     //compareBlock(res, output);
     waes.encryptBlock(input, res1);
-    compareBlock(res1, output);
+    //compareBlock(res1, output);
     
+    //matMulByte(res2, waes.gi, res1, 128);
+    //aes.decryptBlock(res2, res3);
+    //matMulByte(res4, waes.fi, res3,128);
     waes.decryptBlock(res1, res2);
     compareBlock(res2, input);
     
-    //waes.saveKey2File("/Users/bryce/wkey256");
+    waes.saveKey2File("/Users/bryce/wkey128.en");
+    waes.saveKey2File("/Users/bryce/wkey128.de", false);
     
 //    matMulByte(res3, waes.f, input, 128);
 //    matShow(res3);
@@ -154,12 +160,17 @@ int main(int argc, const char * argv[]) {
     BYTE input[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34};
    
     BYTE output[] = {0x39, 0x25, 0x84, 0x1D, 0x02, 0xDC, 0x09, 0xFB, 0xDC, 0x11, 0x85, 0x97, 0x19, 0x6A, 0x0B, 0x32};
+    
+    BYTE key3[] = {0x00,0x01,0x02,0x03,
+        0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0a,0x0b,
+        0x0c,0x0d,0x0e,0x0f};
     //BYTE correct[17] = {0x39,0x25,0x84,0x1D,0x02,0xDC,0x09,0xFB,0xDC,0x11,0x85,0x97,0x19,0x6A,0x0B,0x32};
     
-    testEncodeDecode();
+    //testEncodeDecode();
     //BYTE b1[16];
     //BYTE b2[16];
-    //compare<key128>(key, input);
+    compare<key128>(key3, input);
     //compare<key192>(key2, input);
     
     //generateRandomBijectionT(b1, b2, 16, 1);

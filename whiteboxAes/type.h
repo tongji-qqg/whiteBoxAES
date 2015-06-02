@@ -53,6 +53,9 @@ typedef W32b WAES_TB_TYPE3[TABLE_8BIT_IN_SIZE];
 typedef BIT4 WAES_TB_TYPE4[TABLE_8BIT_IN_SIZE];
 
 
+typedef BIT4 WAES_TB_TYPE4S[TABLE_8BIT_IN_SIZE / 2];
+
+
 enum keyLength{key128=128,key192=192,key256=256};
 
 
@@ -79,4 +82,26 @@ public:
 
 };
 
+template<keyLength L>
+class WaesTablesShrankXor{
+    
+public:
+    
+    //      t4 fot t1a,t1b    | 15 128  xor | 128 = 32 x 4
+    WAES_TB_TYPE4S ex0[2]       [8 + 4 + 2 + 1] [32];
+    
+    //             t1a,t1b    | 128 = 16 x 8
+    WAES_TB_TYPE1  et1[2]       [16];
+    
+    //             rounds     | 128 = 16 x 8
+    WAES_TB_TYPE2  et2[L/32 + 5][16];
+    
+    //             rounds     | 128 = 16 x 8
+    WAES_TB_TYPE3  et3[L/32 + 5][16];
+    
+    //             rounds     | 12 section   | 32 = 8 x 4
+    WAES_TB_TYPE4S ex4t2t3[L/32 + 5][12]       [8];
+    WAES_TB_TYPE4S ex4t3t2[L/32 + 5][12]       [8];
+    
+};
 #endif

@@ -209,7 +209,7 @@ void AES<L>::decryptBlock(BYTE* in, BYTE *out){
     for(int i=0;i<16;i++)
         state.B[i] = in[i];
     
-    matShow(state.B);
+    //matShow(state.B);
     addRoundKey(state, m_Nr);
     //inv_shiftRows( state );
     //inv_subBytes( state );

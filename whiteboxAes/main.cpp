@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
+#include <algorithm>
+#include <string>
 
 // NTL dependencies
 #include <NTL/GF2.h>
@@ -21,202 +23,341 @@
 #include "waesExpandXor.h"
 #include "waesGenerator.h"
 #include "bijection.h"
+#include "test.h"
 
-
+#define CMD_OPT(s) cmdOptionExists(argv, argv+argc, s)
+#define CMD_GET(s) getCmdOption(argv, argv+argc, s)
 //  function instruction:
 //  print help infomation
 //  self test: aes test, waes test, generate file test, bijction test,
-//  aes encode,decode in   [ECB, CBC]
-//  waes encode, decode in [ECB, CBC]
+//  aes encode,decode in
+//  waes encode, decode in
 //  waes generate table save 2 file [whether use external encoding]
 using namespace std;
 
-void compareBlock(BYTE* b1, BYTE* b2){
-    bool flag = true;
-    for(int j=0;j<16;j++){
-        printByte(b1[j]);
-        cout << ",";
-        printByte(b2[j]);
-        cout << endl;
-        if (b1[j] != b2[j]) {
-            flag = false;
-        }
+
+const char* getCmdOption(const char ** begin, const char ** end, const std::string & option)
+{
+    const char ** itr = std::find(begin, end, option);
+    if (itr != end && ++itr != end)
+    {
+        return *itr;
     }
-    if (flag)
-        cout << "same" << endl;
-    else
-        cout << "not same" << endl;
+    return 0;
 }
 
-template<keyLength L>
-void compare(BYTE *key,BYTE *in){
-    
-    clock_t t;
-    BYTE aesEnOut[16], aesDeOut[16];
-    BYTE waesEnOut[16], waesDeOut[16];
-    BYTE waessxEnOut[16], waessxDeOut[16];
-    
-    
-    AES<L> aes(key);
-    t = clock();
-    aes.encryptBlock(in, aesEnOut);
-    aes.decryptBlock(aesEnOut, aesDeOut);
-    t = clock() - t;
-    printf ("AES %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
-    
-    
-    //WAES<L> waes(key);
-    WAES<L> waes("/Users/bryce/wkey128.sx.en","/Users/bryce/wkey128.sx.de");
-    t = clock();
-    waes.encryptBlock(in,waesEnOut);
-    waes.decryptBlock(waesEnOut, waesDeOut);
-    t = clock() - t;
-    printf ("WAES %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
-    
-    //compareBlock(aesDeOut, waesDeOut);
-    
-    //WAESSX<L>waessx(key);
-    WAESEX<L>waesex("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
-    t = clock();
-    waesex.encryptBlock(in,waessxEnOut);
-    waesex.decryptBlock(waessxEnOut, waessxDeOut);
-    t = clock() - t;
-    printf ("WAES Expand Block %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
-    
-    //compareBlock(aesDeOut, waessxDeOut);
+bool cmdOptionExists(const char** begin, const char** end, const std::string& option)
+{
+    return std::find(begin, end, option) != end;
+}
+
+void help(){
+    printf("usage:\n");
+    printf("whiteBoxAes -k <16|24|32 byte key> -e <encrypt file path> -d <decrypt file path> [-l <128|192|256>]\n");
+    printf("whiteBoxAes -e <encrypt file path> -s <a string to encrypt> [-l <128|192|256>]\n");
+    printf("whiteBoxAes -d <decrypt file path> -s <a string to decrypt> [-l <128|192|256>]\n");
+    printf("whiteBoxAes -e <encrypt file path> -f <a file to encrypt> -o <out file>  [-l <128|192|256>]\n");
+    printf("whiteBoxAes -d <decrypt file path> -f <a file to decrypt> -o <out file>  [-l <128|192|256>]\n");
+    printf("whiteBoxAes -t <bijection|encrypt|decrypt|waes128|file> \n");
+    printf("default keylength is 128\n\n");
 }
 
 
-void testEncodeDecode(){
-    //BYTE key[] ={0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
-    //BYTE input[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34};
-    //BYTE output[] = {0x39, 0x25, 0x84, 0x1D, 0x02, 0xDC, 0x09, 0xFB, 0xDC, 0x11, 0x85, 0x97, 0x19, 0x6A, 0x0B, 0x32};
+// generate table is slow, you dont like open them all
+void test(const std::string& opt){
+    if (opt.length() <= 0) {
+        return;
+    }
+    switch (opt.c_str()[0]) {
+        case 'b':
+            waes_test::test_bijection_generation();
+            break;
+        case 'e':
+            waes_test::test_WAES_128_encrypt();
+            break;
+        case 'd':
+            waes_test::test_WAES_128_encrypt();
+            break;
+        case 'w':
+            waes_test::test_WAES_128();
+            break;
+        case 'f':
+            waes_test::test_WAES_file();
+            break;
+        default:
+            help();
+            break;
+    }
+    //waes_test::test_bijection_generation();
     
-    BYTE key[] = {0x00,0x01,0x02,0x03,
-                  0x04,0x05,0x06,0x07,
-                  0x08,0x09,0x0a,0x0b,
-                  0x0c,0x0d,0x0e,0x0f};
-    BYTE input[] = {
-        0x00,0x11,0x22,0x33,
-        0x44,0x55,0x66,0x77,
-        0x88,0x99,0xaa,0xbb,
-        0xcc,0xdd,0xee,0xff
-    };
+    //waes_test::test_AES_128();
     
-    BYTE output[] = {
-        0x69,0xc4,0xe0,0xd8,
-        0x6a,0x7b,0x04,0x30,
-        0xd8,0xcd,0xb7,0x80,
-        0x70,0xb4,0xc5,0x5a
-    };
-    BYTE res1[16], res2[16], res3[16], res4[16], res5[16];
-    AES<key128> aes(key);
-    //WAESSX<key128> waes("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
-    //WAES<key128> waes("/Users/bryce/wkey128.en","/Users/bryce/wkey128.de");
-    WAES<key128> waes(key);
-    //aes.encryptBlock(input, res);
+    //waes_test::test_AES_192();
     
-    //compareBlock(res, output);
-    waes.encryptBlock(input, res1);
-    //compareBlock(res1, output);
+    //waes_test::test_WAES_128();
     
-    //matMulByte(res2, waes.gi, res1, 128);
-    //aes.decryptBlock(res2, res3);
-    //matMulByte(res4, waes.fi, res3,128);
-    waes.decryptBlock(res1, res2);
-    compareBlock(res2, input);
+    //waes_test::test_WAES_128_encrypt();
     
-    waes.saveKey2File("/Users/bryce/wkey128.en");
-    waes.saveKey2File("/Users/bryce/wkey128.de", false);
+    //waes_test::test_WAES_128_decrypt();
     
-//    matMulByte(res3, waes.f, input, 128);
-//    matShow(res3);
-//    aes.encryptBlock(res3, res4);
-//    matShow(res4);
-//    matMulByte(res5, waes.g, res4, 128);
-//    matShow(res5);
-//    matMulByte(res3, waes.gi, res5, 128);
-//    matShow(res3);
-//    aes.decryptBlock(res3, res4);
-//    matShow(res4);
-//    matMulByte(res5, waes.fi, res4, 128);
-//    matShow(res5);
-    //compareBlock(res2, res5);
+    //waes_test::test_WAES_128_ex();
     
-    //aes.decryptBlock(output, res);
-    //compareBlock(res, input);
-    //aes.decryptBlock(output, res);
-    
-    //compareBlock(res, input);
+    //waes_test::test_WAES_file();
 }
+
+
+int generateKeyFile(const std::string & key, const std::string &ef, const std::string &df, keyLength length){
+
+    switch (length) {
+        case key128:{
+            if (key.size() < length / 8)return 1;
+            WAES<key128> waes128((BYTE*)key.c_str());
+            waes128.saveKey2File(ef.c_str());
+            waes128.saveKey2File(df.c_str(), false);
+            break;
+        }
+        case key192:{
+            if (key.size() < length / 8)return 1;
+            WAES<key192> waes((BYTE*)key.c_str());
+            waes.saveKey2File(ef.c_str());
+            waes.saveKey2File(df.c_str(), false);
+            break;
+        }
+        case key256:{
+            if (key.size() < length / 8)return 1;
+            WAES<key256> waes((BYTE*)key.c_str());
+            waes.saveKey2File(ef.c_str());
+            waes.saveKey2File(df.c_str(), false);
+            break;
+        }
+        default:
+            cout << "unrecognized keylength\n";
+            return 1;
+            break;
+    }
+    
+    return 0;
+}
+
+int encryptString(const std::string &ef, const std::string &str, keyLength length){
+    
+    int outSize = (int)str.size();
+    if (outSize % 16 != 0){
+        outSize = outSize + (16 - outSize % 16);
+    }
+    char * buffer = new char[outSize];
+    memset(buffer, 0, outSize);
+    switch (length) {
+        case key128:{
+            
+            WAES<key128> waes128(ef.c_str(), true);
+
+            waes128.encrypt(str.c_str(), buffer, str.size());
+        
+            cout << "cypher\n";
+            for (int i=0; i<outSize; i++) {
+                printByte(buffer[i]);
+            }
+            cout << "\n";
+            break;
+        }
+        case key192:{
+           
+            WAES<key192> waes192(ef.c_str(), true);
+            
+            waes192.encrypt(str.c_str(), buffer, str.size());
+        
+            cout << "cypher\n";
+            for (int i=0; i<outSize; i++) {
+                printByte(buffer[i]);
+            }
+            cout << "\n";
+            break;
+        }
+        case key256:{
+            
+            WAES<key256> waes256(ef.c_str(), true);
+            
+            waes256.encrypt(str.c_str(), buffer, str.size());
+            
+            cout << "cypher\n";
+            for (int i=0; i<outSize; i++) {
+                printByte(buffer[i]);
+            }
+            cout << "\n";
+            break;
+        }
+        default:
+            cout << "unrecognized keylength\n";
+            return 1;
+    }
+    return 0;
+}
+
+int decryptString(const std::string &ef, const std::string &str, keyLength length){
+    
+    int outSize = (int)str.size() / 4;
+    
+    if (outSize % 16 != 0){
+        cout << "cypher size should have a factor 16\n";
+        return 1;
+    }
+    
+    char * ibuffer = new char[outSize];
+    char * obuffer = new char[outSize+1];
+    const char* pstr = str.c_str();
+    
+    memset(obuffer, 0, outSize+1);
+    int h,l;
+    for (int i=0; i<outSize; i++) {
+        
+        if( pstr[i * 4 + 2] >= '0' && pstr[i * 4 + 2] <= '9')
+            h = (pstr[i * 4 + 2] - '0')* 16;
+        else if(pstr[i * 4 + 2] >= 'a' && pstr[i * 4 + 2] <= 'f')
+            h = (pstr[i * 4 + 2] - 'a' + 10) * 16;
+        else
+            h = (pstr[i * 4 + 2] - 'A' + 10) * 16;
+        
+        if( pstr[i * 4 + 3] >= '0' && pstr[i * 4 + 3] <= '9')
+            l = pstr[i * 4 + 3] - '0';
+        else if(pstr[i * 4 + 3] >= 'a' && pstr[i * 4 + 3] <= 'f')
+            l = pstr[i * 4 + 3] - 'a' + 10;
+        else
+            l = pstr[i * 4 + 3] - 'A' + 10;
+        
+        ibuffer[i] = (char)(h + l);
+    }
+    
+    switch (length) {
+        case key128:{
+            WAES<key128> waes128(ef.c_str(), false);
+            waes128.decrypt(ibuffer, obuffer, outSize);
+            cout << "cypher\n";
+            cout << obuffer << "\n";
+            break;
+        }
+        case key192:{
+            
+            WAES<key192> waes192(ef.c_str(), false);
+            
+            waes192.decrypt(ibuffer, obuffer, outSize);
+            
+            cout << "cypher\n";
+            cout << obuffer << "\n";
+            break;
+        }
+        case key256:{
+            
+            WAES<key256> waes256(ef.c_str(), false);
+            
+            waes256.decrypt(ibuffer, obuffer, outSize);
+        
+            cout << "cypher\n";
+            cout << obuffer << "\n";
+            break;
+        }
+        default:
+            cout << "unrecognized keylength\n";
+            delete [] obuffer;
+            delete [] ibuffer;
+            return 1;
+    }
+    delete [] obuffer;
+    delete [] ibuffer;
+    return 0;
+}
+
+
+int encodeFile(const std::string &ef, const std::string &file, const std::string &of, keyLength length, bool isEncrypt){
+    switch (length) {
+        case key128:{
+            
+            WAES<key128> waes128(ef.c_str(), isEncrypt);
+            if (isEncrypt){
+                waes128.encryptFile(file.c_str(), of.c_str());
+            }else{
+                waes128.decryptFile(file.c_str(), of.c_str());
+            }
+            break;
+        }
+        case key192:{
+            
+            WAES<key192> waes192(ef.c_str(), isEncrypt);
+            if (isEncrypt){
+                waes192.encryptFile(file.c_str(), of.c_str());
+            }else{
+                waes192.decryptFile(file.c_str(), of.c_str());
+            }
+            break;
+        }
+        case key256:{
+            
+            WAES<key256> waes256(ef.c_str(), isEncrypt);
+            if (isEncrypt){
+                waes256.encryptFile(file.c_str(), of.c_str());
+            }else{
+                waes256.decryptFile(file.c_str(), of.c_str());
+            }
+            break;
+        }
+        default:
+            cout << "unrecognized keylength\n";
+            return 1;
+    }
+    cout<<"OK\n";
+    return 0;
+}
+
 
 
 int main(int argc, const char * argv[]) {
     
-    cout << "AES test:"<<endl;
+    srand((unsigned)time(NULL));
     
-    BYTE key[] ={0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
-    BYTE key2[] = {0x8e,0x73,0xb0,0xf7,0xda,0x0e,0x64,0x52,0xc8,0x10,0xf3,0x2b,0x80,0x90,0x79,0xe5,0x62,0xf8,0xea,0xd2,0x52,0x2c,0x6b,0x7b};
-    BYTE input[] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34};
-   
-    BYTE output[] = {0x39, 0x25, 0x84, 0x1D, 0x02, 0xDC, 0x09, 0xFB, 0xDC, 0x11, 0x85, 0x97, 0x19, 0x6A, 0x0B, 0x32};
+    keyLength length = key128;
     
-    BYTE key3[] = {0x00,0x01,0x02,0x03,
-        0x04,0x05,0x06,0x07,
-        0x08,0x09,0x0a,0x0b,
-        0x0c,0x0d,0x0e,0x0f};
-    //BYTE correct[17] = {0x39,0x25,0x84,0x1D,0x02,0xDC,0x09,0xFB,0xDC,0x11,0x85,0x97,0x19,0x6A,0x0B,0x32};
+    if( CMD_OPT("-h")){
+        help();
+        return 0;
+    }
     
-    //testEncodeDecode();
-    //BYTE b1[16];
-    //BYTE b2[16];
-    compare<key128>(key3, input);
-    //compare<key192>(key2, input);
+    if (CMD_OPT("-t")) {
+        test(CMD_GET( "-t"));
+        return 0;
+    }
     
-    //generateRandomBijectionT(b1, b2, 16, 1);
-    //matShow(b1);
-    //matShow(b2);
+    if (CMD_OPT("-l")) {
+        string opt_l = CMD_GET("-l");
+        if (opt_l == "192") {
+            length = key192;
+        }else if( opt_l == "256"){
+            length = key256;
+        }
+    }
     
-//    NTL::mat_GF2 m1, m2 ,m3, m4;
-//    m1 = randomMixingBijection(m1, 8);
-//    m2 = randomMixingBijection(m2, 8);
-//    m3 = randomMixingBijection(m3, 4);
-//    WAES_TB_TYPE4 tp4;
-//    cout << m1 << "\n\n" << m2 << "\n\n" << m3 << "\n";
-//    
-//    makeXorTable(tp4, m1, m2, m3);
-//    
-//    for (int i=0; i<256; i++) {
-//        printByte(tp4[i]); cout << ",";
-//        if (i % 8 == 7) {
-//            cout << "\n";
-//        }
-//    }
+    if (CMD_OPT("-e")  && CMD_OPT("-d") && CMD_OPT("-k")) {
+        return generateKeyFile(CMD_GET("-k") ,CMD_GET("-e"), CMD_GET("-d"), length);
+    }
     
+    if (CMD_OPT("-e")  && CMD_OPT("-s")) {
+        
+        return encryptString(CMD_GET("-e"), CMD_GET("-s"), length);
+    }
     
-//    NTL::mat_GF2 m1, m2 ,m3, m4;
-//    m1 = randomMixingBijection(m1, 8);
-//    m2 = randomMixingBijection(m2, 8);
-//    NTL::inv(m3, m1);  NTL::inv(m4, m2);
-//    BYTE i = 9,res1 =0, res2=0;
-//    matMulByte(&res1, m1, &i, 8);
-//    matMulByte(&res2, m3, &res1, 8);
-//    cout << res2-0;
-//    cout << m1 << "\n\n" << m2 << endl;
-//    printByte( byteMul2Mat(0xff, m1, m2)  );
-//    cout << m3 << "\n\n" << m4;
+    if (CMD_OPT("-d")  && CMD_OPT("-s")) {
+        
+        return decryptString(CMD_GET("-d"), CMD_GET("-s"), length);
+    }
     
+    if (CMD_OPT("-e")  && CMD_OPT("-f") && CMD_OPT("-o")) {
+        
+        return encodeFile(CMD_GET("-e"), CMD_GET("-f"), CMD_GET("-o"), length, true);
+    }
     
-//    srand((unsigned)time(NULL));
-//    NTL::mat_GF2 bij,inv,mul;
-//    for(int i=0;i<1;i++){
-//        cout << randomMixingBijection(bij, 128) << endl;
-//        NTL::GF2 det = NTL::determinant(bij);
-//        cout << det << endl;
-//        if (det != 1) {
-//            cout << "single" << endl;
-//        }
-//    }
-    //sleep(3000);
+    if (CMD_OPT("-d")  && CMD_OPT("-f") && CMD_OPT("-o")) {
+        
+        return encodeFile(CMD_GET("-d"), CMD_GET("-f"), CMD_GET("-o"), length, false);
+    }
+    help();
     return 0;
 }

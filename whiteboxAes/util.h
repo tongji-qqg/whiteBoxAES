@@ -28,6 +28,21 @@ inline void W128CP(W128b &s, W128b& t){
     t.l[2] = s.l[2];
     t.l[3] = s.l[3];
 }
+
+inline bool compareBlock(const BYTE* b1, const BYTE* b2, int length = 16){
+    bool flag = true;
+    for(int j=0;j<length;j++){
+        printByte(b1[j]);
+        std::cout << ",";
+        printByte(b2[j]);
+        std::cout << std::endl;
+        if (b1[j] != b2[j]) {
+            flag = false;
+        }
+    }
+    return flag;
+}
+
 //inline void Byte2Vec(BYTE b, NTL::vec_GF2 &vec, int offset,int size=8){
 //    vec.SetLength(size);
 //    
@@ -59,7 +74,7 @@ inline void W128CP(W128b &s, W128b& t){
 //}
 
 // numOfBits is input byte bits number
-inline void matMulByte(BYTE *res, NTL::mat_GF2 & mat, BYTE * b, int numOfBits=8, bool isInv = false){
+inline void matMulByte(BYTE *res, NTL::mat_GF2 & mat, const BYTE * b, int numOfBits=8, bool isInv = false){
     NTL::vec_GF2 mv, rv;
     mv.SetLength(numOfBits);
     int numOfBytes = numOfBits / 8;

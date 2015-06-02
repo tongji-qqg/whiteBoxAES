@@ -6,8 +6,8 @@
 //  Copyright (c) 2015年 qiqingguo. All rights reserved.
 //
 
-#ifndef whiteboxAes_waesShrankXor_h
-#define whiteboxAes_waesShrankXor_h
+#ifndef whiteboxAes_waes_h
+#define whiteboxAes_waes_h
 
 #include "waesBase.h"
 
@@ -16,7 +16,7 @@ class WAES : public WAES_BASE<L>{
     
 private:
     
-    void eliminateExteranlEncodingInit(BYTE *key);
+    void eliminateExteranlEncodingInit(const BYTE *key);
     
     WaesFile wfile;
     
@@ -26,11 +26,13 @@ public:
     
     void cypherBlock(W128b &in, BYTE *out, bool isEncrypt = true);
     
-    WAES(BYTE* key);
+    WAES(const BYTE* key);
     
-    WAES(const char* path, bool isEncrypt = true);
+    WAES(const char* path, bool isEncrypt);
     
     WAES(const char* enPath, const char* dePath);
+    
+    WAES(const BYTE* key, NTL::mat_GF2& f, NTL::mat_GF2 &g);
     
     int saveKey2File(const char* path, bool isEncrypt=true);
     
@@ -39,13 +41,17 @@ public:
 };
 
 
-
+// for test use,
+// or for only 2 external exconding f*En()*g,g-1*De()*f-1,
+// random generate one
 template<keyLength L>
-WAES<L>::WAES(BYTE* key){
+WAES<L>::WAES(const BYTE* key){
     this->baseInit();
     
     this->eliminateExteranlEncodingInit(key);
 }
+
+
 
 
 template<keyLength L>
@@ -59,6 +65,8 @@ WAES<L>::WAES(const char* path, bool isEncrypt){
     }
 }
 
+
+
 template<keyLength L>
 WAES<L>::WAES(const char * enPath, const char* dePath){
     this->baseInit();
@@ -67,6 +75,34 @@ WAES<L>::WAES(const char * enPath, const char* dePath){
     
     this->loadKeyFromFile(dePath, false);
 }
+
+
+// for test use
+// or for generate table with external encoding
+template<keyLength L>
+WAES<L>::WAES(const BYTE* key, NTL::mat_GF2& _f, NTL::mat_GF2 &_g){
+    this->baseInit();
+    
+    WaesGenerator<L> gen;
+    
+    this->f = _f;
+    this->g = _g;
+    NTL::inv(this->fi, _f);
+    NTL::inv(this->gi, _g);
+    
+    gen.setExternalEncoding(this->f,this->g);
+    
+    gen.generateKeyTablesAndShrankXor(key,this->enKeyTable);
+    
+    this->initEnKeyTable = true;
+    
+    gen.setExternalEncoding(this->gi, this->fi);
+    
+    gen.generateKeyTablesAndShrankXor(key,this->deKeyTable,false);
+    
+    this->initDeKeyTable = true;
+}
+
 
 
 template<keyLength L>
@@ -107,7 +143,7 @@ int WAES<L>::loadKeyFromFile(const char* path, bool isEncrypt){
 
 
 template<keyLength L>
-void WAES<L>::eliminateExteranlEncodingInit(BYTE *key){
+void WAES<L>::eliminateExteranlEncodingInit(const BYTE *key){
     WaesGenerator<L> gen;
     
     

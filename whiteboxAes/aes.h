@@ -75,11 +75,11 @@ private:
 		return word;
 	}
 public:
-	AES(BYTE* key);
+	AES(const BYTE* key);
     ~AES(){};
 	void setKey(const BYTE* key);
-	void encryptBlock(BYTE * in, BYTE * out);
-    void decryptBlock(BYTE * in, BYTE * out);
+	void encryptBlock(const BYTE * in, BYTE * out);
+    void decryptBlock(const BYTE * in, BYTE * out);
 };
 
 
@@ -203,7 +203,7 @@ void AES<L>::inv_subBytes(W128b &state){
 }
 
 template<keyLength L>
-void AES<L>::decryptBlock(BYTE* in, BYTE *out){
+void AES<L>::decryptBlock(const BYTE* in, BYTE *out){
     W128b state;
     
     for(int i=0;i<16;i++)
@@ -252,7 +252,7 @@ void AES<L>::decryptBlock(BYTE* in, BYTE *out){
 }
 
 template<keyLength L>
-void AES<L>::encryptBlock(BYTE* in, BYTE *out){
+void AES<L>::encryptBlock(const BYTE* in, BYTE *out){
     W128b state;
     
     for(int i=0;i<16;i++)
@@ -316,7 +316,7 @@ void AES<L>::setKey(const BYTE* key){
     memset(m_key,'\0',sizeof(m_key));
     //strncpy((char*)m_key,(const char*)key,sizeof(m_key)-1);
     //std::cout<<sizeof(m_key) -1 << std::endl;
-    for (int i=0; i<16; i++) {
+    for (int i=0; i<L/8; i++) {
         m_key[i] = key[i];
     }
     keyExpansion();
@@ -325,7 +325,7 @@ void AES<L>::setKey(const BYTE* key){
 
 
 template<keyLength L>
-AES<L>::AES(BYTE* key):m_Nk(L/32),m_Nr(L/32+6){
+AES<L>::AES(const BYTE* key):m_Nk(L/32),m_Nr(L/32+6){
     if (NULL != key)
         setKey(key);
 }

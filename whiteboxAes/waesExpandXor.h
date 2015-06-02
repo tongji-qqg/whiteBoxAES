@@ -1,5 +1,5 @@
-#ifndef __WAES_H__
-#define __WAES_H__
+#ifndef __WAES_EXPAND_XOR_H__
+#define __WAES_EXPAND_XOR_H__
 
 # include "waesBase.h"
 
@@ -22,7 +22,7 @@ public:
     
     void cypherBlock(W128b &in, BYTE *out, bool isEncrypt = true);
 
-    WAESEX(BYTE* key);
+    WAESEX(const BYTE* key);
     
     WAESEX(const char* path, bool isEncrypt = true);
     
@@ -35,7 +35,7 @@ public:
 
 
 template<keyLength L>
-WAESEX<L>::WAESEX(BYTE* key){
+WAESEX<L>::WAESEX(const BYTE* key){
     this->baseInit();
     
     this->eliminateExteranlEncodingInit(key);

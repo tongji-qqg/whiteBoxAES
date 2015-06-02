@@ -77,12 +77,12 @@
 		025C642F1B1004E000B0F605 /* whiteboxAes */ = {
 			isa = PBXGroup;
 			children = (
-				027BE8F81B1D761900ECF883 /* waesFile.h */,
-				02F017EF1B11750B00C95D01 /* aes.h */,
 				025C64411B105A5700B0F605 /* main.cpp */,
+				02F017EF1B11750B00C95D01 /* aes.h */,
 				027BE8F71B1D734C00ECF883 /* waes.h */,
 				027BE8F61B1D728300ECF883 /* waesExpandXor.h */,
 				027BE8F31B1CE87A00ECF883 /* waesBase.h */,
+				027BE8F81B1D761900ECF883 /* waesFile.h */,
 				02F018011B134D9400C95D01 /* waesGenerator.h */,
 				025C643E1B10341C00B0F605 /* type.h */,
 				025C643D1B1033EE00B0F605 /* util.h */,

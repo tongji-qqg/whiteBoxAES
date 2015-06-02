@@ -11,24 +11,21 @@
 
 #include <stdio.h>
 
-int test_AES_encrypt_block();
-int test_AES_decrypt_block();
-int test_AES_encrypt_ECB();
-int test_AES_encrypt_CBC();
-int test_AES_decrypt_ECB();
-int test_AES_decrypt_CBC();
+namespace waes_test {
+    
+    int test_AES_128();
+    int test_AES_192();
+    
+    int test_WAES_128_encrypt();
+    int test_WAES_128_decrypt();
+    
+    int test_WAES_128();
+    int test_WAES_128_ex();
 
-int test_WAES_encrypt_block();
-int test_WAES_decrypt_block();
-int test_WAES_encrypt_ECB();
-int test_WAES_encrypt_EBC();
-int test_WAES_decrypt_ECB();
-int test_WAES_decrypt_CBC();
+    int test_WAES_file();
+    
+    int test_bijection_generation();
+}
 
-int test_bijection_generation();
-
-int test_WaesGenerator_writeFile();
-
-int test_WaesGenerator_readFile();
 
 #endif /* defined(__whiteboxAes__test__) */
